@@ -1,1 +1,14 @@
-
+{
+  "name": "suno-prompt-generator",
+  "version": "1.0.0",
+  "description": "A Suno prompt generator using Gemini API via Netlify Functions.",
+  "main": "netlify/functions/gemini-proxy.js",
+  "scripts": {
+    "start": "netlify dev"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.13.0"
+  },
+  "author": "Zsolt",
+  "license": "MIT"
+}
