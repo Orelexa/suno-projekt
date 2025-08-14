@@ -413,7 +413,6 @@
       const generateTitleBtn = document.getElementById('generateTitleBtn');
       const suggestInstBtn = document.getElementById('suggestInstBtn');
       const titleInput = document.getElementById('title');
-      const apiKeyInput = document.getElementById('apiKeyInput');
       const suggestMixBtn = document.getElementById('suggestMixBtn');
       const suggestNegativeBtn = document.getElementById('suggestNegativeBtn');
       const timeSignatureSelect = document.getElementById('timeSignature');
@@ -527,9 +526,9 @@
                 tempoOriginalTagCheckbox.checked = true;
                 tempoInput.value = '';
             }
-        }
-      });
-      
+        });
+      }
+
       if (tempoOriginalTagCheckbox) {
         tempoOriginalTagCheckbox.addEventListener('change', () => {
             tempoModeSelect.value = tempoOriginalTagCheckbox.checked ? 'original' : 'bpm';
@@ -597,14 +596,10 @@
           const originalText = button.textContent;
           button.textContent = '...';
           button.disabled = true;
-          
+
           try {
-              const apiKey = apiKeyInput.value;
-              if (!apiKey) {
-                  alert('Kérlek, add meg a Google API kulcsodat a folytatáshoz.');
-                  return null; // Early exit if no API key
-              }
-              const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+              // A Google API helyett a Netlify függvényt hívjuk meg
+              const apiUrl = `/.netlify/functions/gemini-proxy`;
 
               const response = await fetch(apiUrl, {
                   method: 'POST',
@@ -612,35 +607,30 @@
                       'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({
-                      contents: [{
-                          parts: [{
-                              text: prompt
-                          }]
-                      }]
+                      prompt: prompt
                   })
               });
 
               if (!response.ok) {
                   throw new Error(`API request failed with status ${response.status}`);
               }
+
               const result = await response.json();
               
-              const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-              if (!text) {
-                  if (result?.candidates?.[0]?.finishReason === 'SAFETY') {
-                       throw new Error('A generálás a biztonsági szűrők miatt leállt. Próbálj más megfogalmazást.');
-                  }
-                  throw new Error('Invalid API response structure');
+              if (result.error) {
+                  throw new Error(result.error);
               }
-              return text.trim();
+
+              return result.text;
           } catch (error) {
               console.error('API call failed:', error);
               let userMessage = `API hiba: ${error.message}`;
               if (error.message.includes('403')) {
-                  userMessage += '\n(A 403-as hiba jogosultsági problémát jelez. Lehet, hogy az API kulcs érvénytelen, vagy a kérés nem engedélyezett.)';
+                  userMessage += '\n(A 403-as hiba jogosultsági problémát jelez. Ellenőrizd a Netlify környezeti változódat.)';
               } else if (error.message.includes('Failed to fetch')) {
                   userMessage += '\n(Hálózati hiba. Ellenőrizd az internetkapcsolatot.)';
+              } else if (error.message.includes('SAFETY')) {
+                   userMessage = 'A generálás a biztonsági szűrők miatt leállt. Próbálj más megfogalmazást.';
               }
               alert(userMessage);
               return null;
@@ -924,13 +914,6 @@
         importSettings();
       });
 
-      apiKeyInput.addEventListener('input', () => {
-        if (apiKeyInput.value.trim() !== '') {
-          formatCard.style.display = 'none';
-        } else {
-          formatCard.style.display = 'block';
-        }
-      });
       
       // ——— Fő logika: Prompt építése ———
       async function buildPrompt(isShort = false) {
@@ -1147,7 +1130,7 @@
           structure: document.getElementById('structure').value,
           ending: document.getElementById('ending').value,
           mix: document.getElementById('mix').value,
-          apiKey: apiKeyInput.value,
+          // apiKey: apiKeyInput.value,  <-- Törölve
           timeSignature: timeSignatureSelect.value,
         };
         localStorage.setItem('sunoPromptGeneratorSettings', JSON.stringify(settings));
@@ -1197,7 +1180,7 @@
             structure: document.getElementById('structure').value,
             ending: document.getElementById('ending').value,
             mix: document.getElementById('mix').value,
-            apiKey: apiKeyInput.value,
+            // apiKey: apiKeyInput.value,  <-- Törölve
             timeSignature: timeSignatureSelect.value,
         };
         const jsonString = JSON.stringify(settings, null, 2);
@@ -1255,7 +1238,7 @@
         document.getElementById('ending').value = settings.ending || 'clear, resolved ending (no fade-out)';
         document.getElementById('mix').value = settings.mix || '';
         document.getElementById('instExtra').value = settings.instExtra || '';
-        apiKeyInput.value = settings.apiKey || '';
+        // apiKeyInput.value = settings.apiKey || ''; <-- Törölve
         timeSignatureSelect.value = settings.timeSignature || '4/4';
         
         vocalChips.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
