@@ -8,7 +8,5 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.13.0"
-  },
-  "author": "Zsolt",
-  "license": "MIT"
+  }
 }
