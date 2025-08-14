@@ -188,9 +188,10 @@
 
       <section class="card span6 format-card" id="formatCard">
         <h2><span class="card-number">2.</span>Formátum & stílus (Suno kompatibilitás)</h2>
-        <label for="apiKeyInput">Google API Kulcs</label>
-        <input id="apiKeyInput" type="password" placeholder="Illessze be az API kulcsot itt" />
-        <div class="small muted" style="margin-top:4px; margin-bottom: 8px;">Az API kulcsot a böngésző tárolja, és nem kerül megosztásra. Kulcsot a <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--acc);">Google AI Studio</a>-ban szerezhetsz.</div>
+        <div class="small muted" style="margin-top:4px; margin-bottom: 8px;">
+          Az oldal most már biztonságosan, Netlify funkciókon keresztül használja a Gemini API-t.
+          Kulcsot a <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: var(--acc);">Google AI Studio</a>-ban szerezhetsz, és a Netlify oldalon kell tárolnod.
+        </div>
         
         <div class="two">
           <div>
@@ -526,9 +527,9 @@
                 tempoOriginalTagCheckbox.checked = true;
                 tempoInput.value = '';
             }
-        });
-      }
-
+        }
+      });
+      
       if (tempoOriginalTagCheckbox) {
         tempoOriginalTagCheckbox.addEventListener('change', () => {
             tempoModeSelect.value = tempoOriginalTagCheckbox.checked ? 'original' : 'bpm';
@@ -1130,7 +1131,6 @@
           structure: document.getElementById('structure').value,
           ending: document.getElementById('ending').value,
           mix: document.getElementById('mix').value,
-          // apiKey: apiKeyInput.value,  <-- Törölve
           timeSignature: timeSignatureSelect.value,
         };
         localStorage.setItem('sunoPromptGeneratorSettings', JSON.stringify(settings));
@@ -1180,7 +1180,6 @@
             structure: document.getElementById('structure').value,
             ending: document.getElementById('ending').value,
             mix: document.getElementById('mix').value,
-            // apiKey: apiKeyInput.value,  <-- Törölve
             timeSignature: timeSignatureSelect.value,
         };
         const jsonString = JSON.stringify(settings, null, 2);
@@ -1238,7 +1237,6 @@
         document.getElementById('ending').value = settings.ending || 'clear, resolved ending (no fade-out)';
         document.getElementById('mix').value = settings.mix || '';
         document.getElementById('instExtra').value = settings.instExtra || '';
-        // apiKeyInput.value = settings.apiKey || ''; <-- Törölve
         timeSignatureSelect.value = settings.timeSignature || '4/4';
         
         vocalChips.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
