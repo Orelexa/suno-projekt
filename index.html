@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Suno Prompt Generátor V4 — Gemini API</title>
+  <style>
+    :root{--bg:#0b0f15;--panel:#121826;--muted:#8892a6;--text:#e6edf6;--acc:#66d9e8;--line:#1f2937;--good:#22c55e;--warn:#f59e0b;--bad:#ef4444}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;background:linear-gradient(180deg,#0b0f15,#0e141f);color:var(--text)}
+    .wrap{max-width:1400px;margin:20px auto;padding:12px}
+    header{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+    h1{font-size:18px;margin:0}
+    .muted{color:var(--muted)}
+    .small{font-size:11px}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:10px;grid-auto-flow:row dense}
+    .card{grid-column:span 12;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+    .card.style-card { background-color: rgba(249, 115, 22, 0.1); border-color: #f97316; }
+    .card.format-card { background-color: rgba(34, 197, 94, 0.1); border-color: #22c55e; }
+    .card.mix-card { background-color: rgba(245, 158, 11, 0.1); border-color: #f59e0b; }
+    @media(min-width:940px){.span3{grid-column:span 3}.span4{grid-column:span 4}.span5{grid-column:span 5}.span6{grid-column:span 6}.span7{grid-column:span 7}.span8{grid-column:span 8}.span9{grid-column:span 9}.span12{grid-column:span 12}}
+    @media(min-width:1200px){.span7{grid-column:span 6}.span5{grid-column:span 6}.span8{grid-column:span 8}.span4{grid-column:span 4}}
+    .card h2{font-size:13px;margin:0 0 8px;color:#c7d2fe;font-weight:600;letter-spacing:.2px}
+    .card-number { color: var(--bad); margin-right: 8px; font-weight: 600; }
+    label{display:block;font-size:12px;color:var(--muted);margin:6px 0 4px}
+    select,input[type="text"],input[type="number"],input[type="password"],textarea{width:100%;background:#0c1220;color:var(--text);border:1px solid #1f2a3a;border-radius:8px;padding:8px 10px;outline:none;font-size:12px}
+    textarea{min-height:80px;resize:vertical}
+    .row{display:flex;gap:6px;flex-wrap:wrap}
+    .chip{background:#0c1220;border:1px solid #1f2a3a;color:#cbd5e1;padding:6px 10px;border-radius:999px;font-size:11px;cursor:pointer;user-select:none}
+    .chip.active{border-color:var(--acc);box-shadow:0 0 0 2px #0b1720 inset;color:#e6fff9}
+    .btn{background:linear-gradient(180deg,#1f9eaa,#0f7f8a);border:none;color:#fff;padding:8px 10px;border-radius:10px;font-weight:600;cursor:pointer;font-size:12px}
+    .btn.secondary{background:#0c1220;border:1px solid #1f2a3a;color:#d1d5db}
+    .btn.ghost{background:transparent;border:1px dashed #2a364a;color:#cbd5e1}
+    .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .input-with-btn {display: flex; gap: 8px; align-items: center;}
+    .input-with-btn input, .input-with-btn select {flex-grow: 1;}
+    .input-with-btn .btn {flex-shrink: 0; padding: 8px;}
+    .output{white-space:pre-wrap;background:#0c1220;border:1px dashed #1f2a3a;border-radius:12px;padding:12px;min-height:140px}
+    .inst-groups{display:grid;gap:10px}
+    details.inst-group{border:1px solid var(--line);border-radius:10px;background:#0c1220}
+    summary.inst-head{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #0f172a;color:#a5b4fc;font-weight:600}
+    .inst-body{padding:8px}
+    .meter{display:flex;align-items:center;gap:6px}
+    .dot{width:8px;height:8px;border-radius:999px;background:var(--good)}
+    .dot.warn{background:var(--warn)}
+    .dot.bad{background:var(--bad)}
+    .badge{font-size:11px;padding:2px 8px;border:1px solid #2a364a;border-radius:999px;color:#cbd5e1}
+    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;background:#0b1120;border:1px solid #1f2a3a;border-radius:6px;padding:0 6px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🎛️ Suno Prompt Generátor V4 <span class="muted small">(HU felület • EN prompt, Gemini API)</span></h1>
+      <div class="toolbar">
+        <button class="btn secondary" id="savePresetBtn">Mentés</button>
+        <button class="btn secondary" id="loadPresetBtn">Betöltés</button>
+        <button class="btn secondary" id="exportBtn">Export</button>
+        <button class="btn secondary" id="importBtn">Import</button>
+        <button class="btn ghost" id="resetBtn">Visszaállítás</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card span6">
+        <h2><span class="card-number">1.</span>Alapok</h2>
+        <label for="title">Munkacím (nem kötelező)</label>
+        <div class="input-with-btn">
+          <input id="title" type="text" placeholder="Pl. Midnight Swing" />
+          <button class="btn secondary" id="generateTitleBtn">✨</button>
+        </div>
+
+        <div class="two" style="margin-top:6px">
+          <div>
+            <label for="tempoMode">Tempo mód</label>
+            <select id="tempoModeSelect">
+              <option value="bpm" selected>BPM megadása</option>
+              <option value="original">Original</option>
+            </select>
+            <div class="small muted" style="margin-top:4px">
+              <label style="display:flex;align-items:center;gap:6px">
+                <input type="checkbox" id="tempoOriginalTag" /> <span>Jelölje a promptban: <span class="kbd">Tempo: original BPM</span></span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label for="tempo">Tempo (BPM)</label>
+            <input id="tempo" type="number" min="40" max="220" step="1" value="100" />
+          </div>
+        </div>
+
+        <div class="two" style="margin-top:6px">
+          <div>
+            <label for="key">Hangnem</label>
+            <select id="key">
+              <option value="">No specific key</option>
+              <option>C major</option><option>G major</option><option>D major</option><option>A major</option><option>E major</option><option>B major</option><option>F# major</option><option>F major</option>
+              <option>A minor</option><option>E minor</option><option>B minor</option><option>F# minor</option><option>C# minor</option><option>G# minor</option><option>D minor</option>
+            </select>
+          </div>
+          <div>
+            <label for="timeSignature">Ütemmutató</label>
+            <div class="input-with-btn">
+                <select id="timeSignature">
+                  <option value="">Nincs megadva</option>
+                  <option>2/4</option>
+                  <option>3/4</option>
+                  <option selected>4/4</option>
+                  <option>5/4</option>
+                  <option>6/8</option>
+                  <option>7/8</option>
+                  <option>12/8</option>
+                </select>
+                <button class="btn secondary" id="suggestTimeSignatureBtn">✨</button>
+            </div>
+          </div>
+        </div>
+
+        <label>Vokál</label>
+        <div class="row" id="vocalChips">
+          <div class="chip" data-value="instrumental">Instrumental only</div>
+          <div class="chip active" data-value="vocal">Include vocal</div>
+          <div class="chip" data-value="choir">Choir / backing only</div>
+        </div>
+
+        <div id="lyricsGenOpts" style="display:block; margin-top:6px">
+          <label for="lyricsLang">Szöveg nyelve</label>
+          <select id="lyricsLang">
+            <option value="en">English</option>
+            <option value="hu">Magyar</option>
+            <option value="it">Italiano</option>
+          </select>
+          <button class="btn" id="regenLyricsBtn">Dalszöveg generálása ✨</button>
+        </div>
+
+        <label for="lyricsText" style="margin-top:6px">Dalszöveg</label>
+        <textarea id="lyricsText" placeholder="[verse] ... [chorus] ..."></textarea>
+
+        <label style="margin-top:6px">Vokál típus</label>
+        <div class="row" id="vocalType">
+          <div class="chip" data-voctype="male">Férfi</div>
+          <div class="chip" data-voctype="female">Női</div>
+          <div class="chip" data-voctype="child">Gyerek</div>
+          <div class="chip" data-voctype="female choir">Női kórus</div>
+          <div class="chip" data-voctype="male choir">Férfi kórus</div>
+          <div class="chip" data-voctype="mixed choir">Mix kórus</div>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+            <label for="mood" style="margin: 0;">Hangulat</label>
+            <button class="btn secondary" id="suggestMoodThemeBtn">Javaslat ✨</button>
+        </div>
+        <input id="mood" type="text" placeholder="romantic, cinematic, dramatic, warm" value="cinematic, dynamic, warm" />
+        
+        <label for="theme" style="margin-top:6px">Téma / rövid leírás</label>
+        <textarea id="theme" placeholder="Pl. A lively vintage feel with modern punch."></textarea>
+      </section>
+
+      <section class="card span6 format-card">
+        <h2><span class="card-number">2.</span>Formátum & stílus</h2>
+        
+        <label for="styleExtra" style="margin-top:6px">Extra stílus-megjegyzés</label>
+        <input id="styleExtra" type="text" placeholder="Pl. 1930s radio texture, sidechain pump" />
+
+        <label for="negative" style="margin-top:6px">Negatív / kerülendő elemek</label>
+        <input id="negative" type="text" placeholder="no distortion, no harsh sibilance, avoid EDM drops" />
+
+        <label for="quickPresetsDropdown" style="margin-top:6px">Gyors sablonok</label>
+        <select id="quickPresetsDropdown">
+          <option value="">Válassz egy sablont…</option>
+        </select>
+      </section>
+
+      <section class="card span8 style-card">
+        <h2><span class="card-number">3.</span>Zenei stílus</h2>
+        <label>Válaszd ki (több is lehet)</label>
+        <div class="row" id="styleChips"></div>
+      </section>
+
+      <section class="card span4">
+        <h2><span class="card-number">4.</span>Hangszerelés</h2>
+        <div id="instChips" class="inst-groups"></div>
+        <label for="instExtra" style="margin-top:6px">Extra hangszerelés</label>
+        <input id="instExtra" type="text" placeholder="Pl. muted trumpets, pizzicato cellos" />
+      </section>
+
+      <section class="card span8 mix-card">
+        <h2><span class="card-number">5.</span>Szerkezet & Mix</h2>
+        
+        <label for="structure" style="margin-top:6px">Szerkezet</label>
+        <textarea id="structure" placeholder="Intro – Verse – Chorus – Verse – Chorus – Bridge – Chorus – Outro"></textarea>
+
+        <div class="two" style="margin-top:6px">
+          <div>
+            <label for="ending">Zárás</label>
+            <select id="ending">
+              <option>clear, resolved ending (no fade-out)</option>
+              <option>cold stop (sudden end)</option>
+              <option>long reverb tail</option>
+              <option>gradual fade-out</option>
+            </select>
+          </div>
+          <div>
+            <label for="mix">Mix / Produkció</label>
+            <input id="mix" type="text" placeholder="Tight low end, wide strings, gentle saturation" />
+          </div>
+        </div>
+      </section>
+
+      <section class="card span12">
+        <h2><span class="card-number">6.</span>Prompt kimenet</h2>
+        <div class="toolbar" style="margin-bottom:6px">
+          <button class="btn" id="generateBtn">Prompt készítése</button>
+          <button class="btn secondary" id="copyBtn">Másolás</button>
+          <span class="badge" id="lengthBadge">0 ch</span>
+          <span class="meter"><span class="dot" id="lenDot"></span><span class="small muted" id="lenHint">Ideális</span></span>
+        </div>
+        <textarea id="output" class="output"></textarea>
+      </section>
+      
+      <section class="card span12" id="lyricsOutputSection" style="display:none;">
+        <h2><span class="card-number">7.</span>Dalszöveg kimenet</h2>
+        <div class="toolbar" style="margin-bottom:6px">
+          <button class="btn" id="copyLyricsBtn">Szöveg másolása</button>
+        </div>
+        <textarea id="lyricsOutput" class="output" readonly></textarea>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // Adatok
+    const STYLE_PRESETS = [
+      "electro swing","blues","slowfox","samba","mambo","cha-cha-cha","bossa nova","tango","waltz",
+      "soul","rap","EDM","pop","pop rock","rock ballad","indie","metal","rock & roll","reggae",
+      "electro-classic","techno","rave","techno dance","disco","R&B","electronic dance","gospel","classical",
+      "folk","ska","jazz","hip-hop","ambient","trance","house","trap","synth-pop","synthwave",
+      "cinematic orchestral","baroque","renaissance","opera","swing","big band","romantic piano",
+      "baroque pop","romantic classical","latin","latin pop","salsa","flamenco","chillwave",
+      "lofi hip hop","jazz ballad","folk acoustic","drum and bass","indie rock"
+    ];
+
+    const INSTRUMENT_GROUPS = [
+      { name: 'Vonósok', items: ['string ensemble','violin section','viola section','cello section','double basses','solo violin','solo cello','harp'] },
+      { name: 'Fafúvósok', items: ['flute','oboe','clarinet','bassoon','piccolo','alto saxophone','tenor saxophone'] },
+      { name: 'Rézfúvósok', items: ['trumpet section','horns in F','trombone section','tuba','brass ensemble'] },
+      { name: 'Billentyűsök', items: ['piano','electric piano','harpsichord','organ','synthesizer','synth pads'] },
+      { name: 'Ütősök / Dob', items: ['timpani','snare drum','cymbals','modern drum kit','electronic drums','shaker','congas'] },
+      { name: 'Pop / Band', items: ['electric guitar','acoustic guitar','bass guitar','upright bass','saxophone (alto)','saxophone (tenor)','modern drum kit'] }
+    ];
+
+    const QUICK_PRESETS = [
+      {name:'Cinematic Ballad', set:{style:['cinematic orchestral','romantic piano'], inst:['string ensemble','solo cello','piano'], tempo:72, mood:'emotional, warm, expansive', key:'A minor'}},
+      {name:'EDM Drop', set:{style:['EDM','trance','house'], inst:['synthesizer','synth pads','modern drum kit'], tempo:128, mood:'energetic, euphoric, bright', key:'E minor'}},
+      {name:'Retro Swing', set:{style:['swing','big band'], inst:['trumpet section','trombone section','saxophone (alto)','upright bass'], tempo:110, mood:'playful, vintage, lively', key:'C major'}},
+      {name:'Jazz Ballad', set:{style:['jazz ballad'], inst:['piano','upright bass','saxophone (tenor)'], tempo:70, mood:'smooth, romantic, intimate', key:'Bb major'}}
+    ];
+
+    // DOM elemek
+    let styleChipsContainer, instChipsContainer, quickPresetsDropdown, lyricsTextarea, vocalChips;
+    let generateBtn, outputDiv, copyBtn, moodInput, themeTextarea, instExtraInput, styleExtraInput;
+    let negativeInput, tempoInput, keySelect, vocalTypeChips, structureTextarea, endingSelect, mixInput;
+    let lengthBadge, lenDot, lenHint, lyricsOutputSection, lyricsOutput, copyLyricsBtn;
+    let tempoModeSelect, tempoOriginalTagCheckbox, timeSignatureSelect, titleInput;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Elemek inicializálása
+      styleChipsContainer = document.getElementById('styleChips');
+      instChipsContainer = document.getElementById('instChips');
+      quickPresetsDropdown = document.getElementById('quickPresetsDropdown');
+      lyricsTextarea = document.getElementById('lyricsText');
+      vocalChips = document.getElementById('vocalChips');
+      generateBtn = document.getElementById('generateBtn');
+      outputDiv = document.getElementById('output');
+      copyBtn = document.getElementById('copyBtn');
+      moodInput = document.getElementById('mood');
+      themeTextarea = document.getElementById('theme');
+      instExtraInput = document.getElementById('instExtra');
+      styleExtraInput = document.getElementById('styleExtra');
+      negativeInput = document.getElementById('negative');
+      tempoInput = document.getElementById('tempo');
+      keySelect = document.getElementById('key');
+      vocalTypeChips = document.getElementById('vocalType');
+      structureTextarea = document.getElementById('structure');
+      endingSelect = document.getElementById('ending');
+      mixInput = document.getElementById('mix');
+      lengthBadge = document.getElementById('lengthBadge');
+      lenDot = document.getElementById('lenDot');
+      lenHint = document.getElementById('lenHint');
+      lyricsOutputSection = document.getElementById('lyricsOutputSection');
+      lyricsOutput = document.getElementById('lyricsOutput');
+      copyLyricsBtn = document.getElementById('copyLyricsBtn');
+      tempoModeSelect = document.getElementById('tempoModeSelect');
+      tempoOriginalTagCheckbox = document.getElementById('tempoOriginalTag');
+      timeSignatureSelect = document.getElementById('timeSignature');
+      titleInput = document.getElementById('title');
+
+      // Stílus chipek feltöltése
+      STYLE_PRESETS.forEach(style => {
+        const chip = document.createElement('div');
+        chip.classList.add('chip');
+        chip.textContent = style;
+        chip.dataset.value = style;
+        chip.addEventListener('click', () => chip.classList.toggle('active'));
+        styleChipsContainer.appendChild(chip);
+      });
+
+      // Hangszer chipek feltöltése
+      INSTRUMENT_GROUPS.forEach(group => {
+        const details = document.createElement('details');
+        details.classList.add('inst-group');
+        details.open = true;
+        const summary = document.createElement('summary');
+        summary.classList.add('inst-head');
+        summary.textContent = group.name;
+        details.appendChild(summary);
+
+        const body = document.createElement('div');
+        body.classList.add('inst-body');
+        const row = document.createElement('div');
+        row.classList.add('row');
+        group.items.forEach(item => {
+          const chip = document.createElement('div');
+          chip.classList.add('chip');
+          chip.textContent = item;
+          chip.dataset.value = item;
+          chip.addEventListener('click', () => chip.classList.toggle('active'));
+          row.appendChild(chip);
+        });
+        body.appendChild(row);
+        details.appendChild(body);
+        instChipsContainer.appendChild(details);
+      });
+
+      // Gyors sablonok feltöltése
+      QUICK_PRESETS.forEach(preset => {
+        const option = document.createElement('option');
+        option.value = preset.name;
+        option.textContent = preset.name;
+        quickPresetsDropdown.appendChild(option);
+      });
+
+      // Eseménykezelők
+      vocalChips.addEventListener('click', (e) => {
+        if (e.target.classList.contains('chip')) {
+          vocalChips.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+          e.target.classList.add('active');
+          const isInstrumental = e.target.dataset.value === 'instrumental';
+          lyricsTextarea.disabled = isInstrumental;
+          if (isInstrumental) lyricsTextarea.value = '';
+        }
+      });
+      
+      vocalTypeChips.addEventListener('click', (e) => {
+        if (e.target.classList.contains('chip')) {
+          e.target.classList.toggle('active');
+        }
+      });
+
+      tempoModeSelect.addEventListener('change', () => {
+        tempoInput.disabled = (tempoModeSelect.value !== 'bpm');
+        if (tempoOriginalTagCheckbox) {
+          tempoOriginalTagCheckbox.disabled = (tempoModeSelect.value !== 'original');
+          if (tempoModeSelect.value === 'original') {
+            tempoOriginalTagCheckbox.checked = true;
+            tempoInput.value = '';
+          }
+        }
+      });
+
+      if (tempoOriginalTagCheckbox) {
+        tempoOriginalTagCheckbox.addEventListener('change', () => {
+          tempoModeSelect.value = tempoOriginalTagCheckbox.checked ? 'original' : 'bpm';
+          tempoInput.disabled = tempoOriginalTagCheckbox.checked;
+          if (tempoOriginalTagCheckbox.checked) {
+            tempoInput.value = '';
+          }
+        });
+      }
+
+      generateBtn.addEventListener('click', () => {
+        const prompt = buildPrompt();
+        outputDiv.value = prompt;
+        updateLengthBadge(prompt);
+        
+        const lyrics = lyricsTextarea.value;
+        if (lyrics.trim() !== '') {
+          lyricsOutputSection.style.display = 'block';
+          lyricsOutput.value = buildLyricsOutput(lyrics);
+        } else {
+          lyricsOutputSection.style.display = 'none';
+          lyricsOutput.value = '';
+        }
+      });
+
+      copyBtn.addEventListener('click', () => {
+        outputDiv.select();
+        document.execCommand('copy');
+        copyBtn.textContent = 'Másolva!';
+        setTimeout(() => copyBtn.textContent = 'Másolás', 2000);
+      });
+
+      copyLyricsBtn.addEventListener('click', () => {
+        lyricsOutput.select();
+        document.execCommand('copy');
+        copyLyricsBtn.textContent = 'Másolva!';
+        setTimeout(() => copyLyricsBtn.textContent = 'Szöveg másolása', 2000);
+      });
+
+      // Prompt építő függvény
+      function buildPrompt() {
+        let prompt = '';
+        const title = titleInput.value;
+        const tempo = tempoInput.value;
+        const key = keySelect.value;
+        const vocal = vocalChips.querySelector('.chip.active').dataset.value;
+        const vocalTypes = Array.from(vocalTypeChips.querySelectorAll('.chip.active')).map(c => c.dataset.voctype);
+        const timeSignature = timeSignatureSelect.value;
+        const mood = moodInput.value;
+        const selectedStyles = Array.from(styleChipsContainer.querySelectorAll('.chip.active')).map(c => c.dataset.value);
+        const selectedInst = Array.from(instChipsContainer.querySelectorAll('.chip.active')).map(c => c.dataset.value);
+        const instExtra = instExtraInput.value;
+        const styleExtra = styleExtraInput.value;
+        const negative = negativeInput.value;
+        const structure = structureTextarea.value;
+        const ending = endingSelect.value;
+        const mix = mixInput.value;
+
+        // Vokál
+        if (vocal === 'instrumental') {
+          prompt += 'Vocal: instrumental only\n';
+        } else if (vocal === 'choir') {
+          prompt += 'Vocal: choir / backing only\n';
+        } else if (vocalTypes.length > 0) {
+          const types = vocalTypes.map(vt => `${vt} vocal`).join(', ');
+          prompt += `Vocal: ${types}\n`;
+        }
+
+        // Stílus
+        let styleString = selectedStyles.join(', ');
+        if (styleExtra) styleString += styleString ? `, ${styleExtra}` : styleExtra;
+        if (mood) styleString += styleString ? `, ${mood}` : mood;
+        if (styleString) prompt += `Style: [${styleString}]\n`;
+
+        // Hangszerek
+        let instString = selectedInst.join(', ');
+        if (instExtra) instString += instString ? `, ${instExtra}` : instExtra;
+        if (instString) prompt += `Instruments: [${instString}]\n`;
+        
+        // Technikai adatok - JAVÍTOTT TEMPO LOGIKA
+        const tempoMode = tempoModeSelect.value;
+        const tempoOriginalTag = tempoOriginalTagCheckbox ? tempoOriginalTagCheckbox.checked : false;
+
+        if (tempoMode === 'original' || tempoOriginalTag) {
+          prompt += 'Tempo: original BPM\n';
+        } else if (tempo) {
+          prompt += `Tempo: ${tempo}\n`;
+        }
+
+        if (key) prompt += `Key: ${key}\n`;
+        if (timeSignature) prompt += `Time Signature: ${timeSignature}\n`;
+        if (structure) prompt += `Structure: ${structure}\n`;
+        if (ending) prompt += `Ending: ${ending}\n`;
+        if (mix) prompt += `Mix: ${mix}\n`;
+        if (negative) prompt += `Negative: ${negative}\n`;
+        if (title) prompt += `Title: ${title}\n`;
+
+        return prompt.trim();
+      }
+
+      function buildLyricsOutput(lyrics) {
+        const stanzas = lyrics.split(/\n\s*\n/);
+        const tags = ['[Verse]', '[Chorus]', '[Verse]', '[Chorus]', '[Bridge]', '[Chorus]', '[Outro]'];
+        const taggedStanzas = stanzas.map((stanza, index) => {
+          const hasTag = ['[verse]', '[chorus]', '[bridge]', '[intro]', '[outro]'].some(tag => 
+            stanza.toLowerCase().trim().startsWith(tag));
+          if (hasTag) return stanza.trim();
+          const tag = tags[index] || '[Verse]';
+          return `${tag}\n${stanza.
