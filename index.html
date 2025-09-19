@@ -29,6 +29,8 @@
         }
       }
     </script>
+    <!-- Add Babel Standalone for in-browser TSX transpilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script type="importmap">
 {
   "imports": {
@@ -43,6 +45,7 @@
 </head>
   <body class="bg-gradient-to-b from-bg-dark to-[#0e141f] text-text-main font-sans">
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <!-- Change script type to text/babel and fix path -->
+    <script type="text/babel" data-presets="typescript,react" src="./index.tsx"></script>
   </body>
 </html>
