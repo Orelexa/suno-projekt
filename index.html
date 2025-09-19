@@ -188,7 +188,24 @@ const Chip = ({ label, isActive, onClick }) => {
     return React.createElement('div', { onClick, className: `${baseClasses} ${isActive ? activeClasses : inactiveClasses}` }, label);
 };
 
-const GeminiButton = ({ onClick, isLoading, children, title, className, disabled }) => React.createElement('button', { onClick, disabled: isLoading || disabled, title, className: `flex items-center justify-center gap-2 text-sm bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className || ''}`}, isLoading ? React.createElement(React.Fragment, null, React.createElement(LoaderCircle, { size: 16, className: "animate-spin" }), React.createElement('span', null, "Feldolgozás...")) : React.createElement(React.Fragment, null, React.createElement(Sparkles, { size: 16 }), children));
+const GeminiButton = ({ onClick, isLoading, children, title, className, disabled }) => {
+    const content = isLoading 
+        ? React.createElement(React.Fragment, null, 
+            React.createElement(LoaderCircle, { size: 16, className: "animate-spin" }), 
+            React.createElement('span', null, "Feldolgozás...")
+          )
+        : React.createElement(React.Fragment, null, 
+            React.createElement(Sparkles, { size: 16 }), 
+            ...React.Children.toArray(children)
+          );
+
+    return React.createElement('button', { 
+        onClick, 
+        disabled: isLoading || disabled, 
+        title, 
+        className: `flex items-center justify-center gap-2 text-sm bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className || ''}`
+    }, content);
+};
 const Toast = ({ message }) => {
     const [visible, setVisible] = useState(false);
     useEffect(() => {
@@ -205,7 +222,7 @@ const ActionButton = ({ onClick, title, children }) => React.createElement('butt
 const Header = ({ onSave, onLoad, onExport, onImport, onReset, onManageApiKey }) => React.createElement('header', { className: "flex flex-col sm:flex-row gap-4 items-center justify-between mb-5" }, React.createElement('h1', { className: "text-xl font-bold text-text-main" }, "🎛️ Suno Prompt Generátor", React.createElement('span', { className: "text-muted text-sm ml-2 font-normal" }, "(HU felület → EN prompt, Gemini API)")), React.createElement('div', { className: "flex gap-2 flex-wrap justify-center" }, React.createElement(ActionButton, { onClick: onSave, title: "Beállítások mentése a böngészőbe" }, React.createElement(Save, { size: 16 }), " Mentés"), React.createElement(ActionButton, { onClick: onLoad, title: "Beállítások betöltése a böngészőből" }, React.createElement(FolderDown, { size: 16 }), " Betöltés"), React.createElement(ActionButton, { onClick: onExport, title: "Beállítások exportálása fájlba" }, React.createElement(Download, { size: 16 }), " Export"), React.createElement(ActionButton, { onClick: onImport, title: "Beállítások importálása fájlból" }, React.createElement(Upload, { size: 16 }), " Import"), React.createElement(ActionButton, { onClick: onReset, title: "Minden mező visszaállítása" }, React.createElement(RotateCcw, { size: 16 }), " Visszaállítás"), React.createElement(ActionButton, { onClick: onManageApiKey, title: "API kulcs kezelése" }, React.createElement(SettingsIcon, { size: 16 }), " API Kulcs")));
 
 const Input = (props) => {
-    const { className, children, ...otherProps } = props; // Destructure and ignore children
+    const { className, ...otherProps } = props;
     return React.createElement('input', { ...otherProps, className: `w-full bg-bg-dark/50 text-text-main border border-line rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition ${className || ''}` });
 };
 const Select = (props) => {
@@ -213,7 +230,7 @@ const Select = (props) => {
     return React.createElement('select', { ...otherProps, className: `w-full bg-bg-dark/50 text-text-main border border-line rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition ${className || ''}` }, children);
 };
 const Textarea = (props) => {
-    const { children, className, ...otherProps } = props; // Destructure and ignore children
+    const { className, ...otherProps } = props;
     return React.createElement('textarea', { ...otherProps, className: `w-full bg-bg-dark/50 text-text-main border border-line rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition resize-y min-h-[80px] ${className || ''}` });
 };
 
