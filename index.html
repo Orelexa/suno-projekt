@@ -3,28 +3,41 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Suno Generate</title>
+    <title>Suno Generate — UMD</title>
 
     <!-- Ideiglenes: Tailwind CDN (később leválthatjuk PostCSS/CLI-re) -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- IMPORT MAP: egyetlen React 18.3.1 példány mindenhez -->
-    <script type="importmap">
-    {
-      "imports": {
-        "react": "https://esm.sh/react@18.3.1",
-        "react-dom": "https://esm.sh/react-dom@18.3.1",
-        "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
-        "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime"
-      }
-    }
-    </script>
+    <!-- React 18 UMD (globális) – NINCS import map, NINCS ESM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   </head>
 
   <body class="bg-slate-950 text-slate-100 min-h-screen">
+    <div id="root" class="min-h-screen"></div>
     <noscript>Engedélyezd a JavaScriptet.</noscript>
 
-    <!-- CSAK EZ az egy modul legyen itt -->
-    <script type="module" src="./main.js"></script>
+    <!-- Egyetlen belépő: UMD render, nincs StrictMode, nincs createRoot duplázás -->
+    <script>
+      // Biztos, ami biztos: ha valami korábban próbált root-ot csinálni, takarítsunk
+      try { window.__APP_UNMOUNT__ && window.__APP_UNMOUNT__(); } catch {}
+
+      const container = document.getElementById("root");
+
+      function App() {
+        return React.createElement(
+          "main",
+          { className: "mx-auto max-w-3xl p-6 space-y-4" },
+          React.createElement("h1", { className: "text-xl font-semibold" }, "Suno Generate – UMD render"),
+          React.createElement("p", { className: "opacity-80" }, "Ha ezt látod, a duplázódás megszűnt. Ebből lépünk tovább.")
+        );
+      }
+
+      // UMD stílus: használhatunk createRoot-ot is, de a legstabilabb most a render()
+      ReactDOM.render(React.createElement(App), container);
+
+      // opcionális leállító
+      window.__APP_UNMOUNT__ = () => ReactDOM.unmountComponentAtNode(container);
+    </script>
   </body>
 </html>
