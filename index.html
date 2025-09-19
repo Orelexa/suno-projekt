@@ -42,21 +42,24 @@
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-gradient-to-b from-bg-dark to-[#0e141f] text-text-main font-sans">
     <div id="root"></div>
     <!-- 
-      1. Tell Babel to transpile our main script and its dependencies into an ES module.
-      Babel will fetch and process this script but won't execute it immediately.
+      1. Tell Babel to transpile our main script (now with a .js extension) and its dependencies.
+      The .js extension ensures the server sends the correct 'text/javascript' MIME type.
+      Babel's 'typescript' preset will still process the TS/JSX syntax within the .js file.
     -->
-    <script type="text/babel" data-type="module" data-presets="typescript,react" src="./index.tsx"></script>
+    <script type="text/babel" data-type="module" data-presets="typescript,react" src="./index.js"></script>
     
     <!-- 
-      2. Now, use a native module script to import and execute the code that Babel just prepared.
-      This triggers the application to run.
+      2. Now, use a native module script to import and execute the code. The browser requests
+      a .js file, which the server handles correctly.
     -->
     <script type="module">
-      import './index.tsx';
+      import './index.js';
     </script>
-  </body>
+  <script type="module" src="/index.tsx"></script>
+</body>
 </html>

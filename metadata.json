@@ -1,0 +1,5 @@
+{
+  "name": "Suno Prompt Generator",
+  "description": "An advanced UI to generate detailed and structured music prompts for Suno AI. It translates Hungarian UI inputs into English prompts and leverages the Gemini API for creative suggestions, translations, and prompt enhancements.",
+  "requestFramePermissions": []
+}
