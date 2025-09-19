@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Suno Generate — UMD</title>
+    <title>Suno Generate — UMD + Netlify Function</title>
 
-    <!-- Ideiglenes: Tailwind CDN (később leválthatjuk PostCSS/CLI-re) -->
+    <!-- Tailwind (tesztre jó) -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- React 18 UMD (globális) – NINCS import map, NINCS ESM -->
+    <!-- React 18 UMD (globális) -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   </head>
@@ -17,27 +17,67 @@
     <div id="root" class="min-h-screen"></div>
     <noscript>Engedélyezd a JavaScriptet.</noscript>
 
-    <!-- Egyetlen belépő: UMD render, nincs StrictMode, nincs createRoot duplázás -->
     <script>
-      // Biztos, ami biztos: ha valami korábban próbált root-ot csinálni, takarítsunk
-      try { window.__APP_UNMOUNT__ && window.__APP_UNMOUNT__(); } catch {}
-
-      const container = document.getElementById("root");
+      const el = React.createElement;
 
       function App() {
-        return React.createElement(
-          "main",
-          { className: "mx-auto max-w-3xl p-6 space-y-4" },
-          React.createElement("h1", { className: "text-xl font-semibold" }, "Suno Generate – UMD render"),
-          React.createElement("p", { className: "opacity-80" }, "Ha ezt látod, a duplázódás megszűnt. Ebből lépünk tovább.")
+        const [prompt, setPrompt] = React.useState("");
+        const [loading, setLoading] = React.useState(false);
+        const [error, setError] = React.useState("");
+        const [result, setResult] = React.useState("");
+
+        async function handleGenerate() {
+          setError("");
+          setResult("");
+          if (!prompt.trim()) {
+            setError("Adj meg egy promptot.");
+            return;
+          }
+          setLoading(true);
+          try {
+            const resp = await fetch("/.netlify/functions/generate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ prompt, model: "gemini-1.5-flash" })
+            });
+            if (!resp.ok) {
+              const txt = await resp.text().catch(() => "");
+              throw new Error(`Backend ${resp.status}: ${txt}`);
+            }
+            const data = await resp.json();
+            setResult(data.text || "(nincs szöveg)");
+          } catch (e) {
+            setError(String(e.message || e));
+          } finally {
+            setLoading(false);
+          }
+        }
+
+        return el("main", { className: "mx-auto max-w-3xl p-6 space-y-4" },
+          el("h1", { className: "text-2xl font-semibold" }, "Suno Generate — működő prototípus"),
+          el("p", { className: "opacity-80" }, "A Gemini hívás Netlify Functionön keresztül megy, így a kulcs nem kerül a kliensbe."),
+          el("div", { className: "space-y-3" },
+            el("textarea", {
+              className: "w-full h-36 bg-slate-900/70 border border-slate-800 rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500",
+              placeholder: "Írd ide a promptot…",
+              value: prompt,
+              onChange: (e) => setPrompt(e.target.value)
+            }),
+            el("button", {
+              className: "px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg disabled:opacity-50",
+              disabled: loading,
+              onClick: handleGenerate
+            }, loading ? "Generálás…" : "Generálás"),
+            error && el("div", { className: "text-red-400" }, error),
+            result && el("pre", { className: "whitespace-pre-wrap bg-slate-900/60 p-3 rounded-xl border border-slate-800" }, result)
+          )
         );
       }
 
-      // UMD stílus: használhatunk createRoot-ot is, de a legstabilabb most a render()
-      ReactDOM.render(React.createElement(App), container);
-
-      // opcionális leállító
-      window.__APP_UNMOUNT__ = () => ReactDOM.unmountComponentAtNode(container);
+      // Simple, stabil render UMD-del
+      const root = document.getElementById("root");
+      ReactDOM.render(React.createElement(App), root);
+      window.__APP_UNMOUNT__ = () => ReactDOM.unmountComponentAtNode(root);
     </script>
   </body>
 </html>
