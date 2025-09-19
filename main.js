@@ -2,22 +2,45 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 
-// Log: hányadszor tölt be a modul
+// Logoljuk, hányszor fut le a modul
 console.log("[main.js] loaded at", new Date().toISOString());
 
-const container = document.getElementById("root");
-if (!container) throw new Error("#root nem található");
+/**
+ * Ellenőrzi, hogy a #root elemre már hívta-e valaki a createRoot-ot.
+ * Ha igen, létrehozunk egy ÚJ, tiszta konténert és kicseréljük a DOM-ban,
+ * így biztosan nem kapunk React #62 hibát.
+ */
+function ensureFreshContainer() {
+  let container = document.getElementById("root");
+  if (!container) throw new Error("#root nem található");
 
-// Ütközésvédelem: ha már van root, ne hozzuk létre újra (React #62 elleni védelem)
-const root = globalThis.__APP_ROOT__ || (globalThis.__APP_ROOT__ = createRoot(container));
+  // React 18 belső jelölése: a konténeren megjelenik egy __reactContainer$... kulcs
+  const hasReactMarker = Object.getOwnPropertyNames(container)
+    .some((k) => k.startsWith("__reactContainer$"));
 
-// Minimál kezdő UI – csak hogy lásd, hogy él
+  if (hasReactMarker) {
+    console.warn("[main.js] Létező React root észlelve a #root-on – új konténer készül.");
+    const fresh = container.cloneNode(false); // üres klón
+    fresh.id = "root-app"; // új ID, hogy biztosan tiszta legyen
+    container.replaceWith(fresh);
+    return fresh;
+  }
+
+  return container;
+}
+
+const container = ensureFreshContainer();
+
+// Egyetlen root példányt hozunk létre
+const root = createRoot(container);
+
+// Minimál kezdő UI – hogy legyen látható visszajelzés
 function App() {
   return React.createElement(
     "main",
     { style: "padding:24px;color:#fff;font-family:system-ui,Segoe UI,Arial" },
-    React.createElement("h1", null, "Suno Generate – 1. lépés OK"),
-    React.createElement("p", null, "Egyetlen belépő modul fut, nincs React #62.")
+    React.createElement("h1", null, "Suno Generate – stabil belépő"),
+    React.createElement("p", null, "A React #62 ütközést elkerültük új konténerrel.")
   );
 }
 
