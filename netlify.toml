@@ -1,2 +1,31 @@
+# === Netlify Build Beállítások ===
+# Ez a rész mondja meg a Netlify-nak, hogyan építse fel az oldalt.
+[build]
+  # A LEGFONTOSABB PARANCS: Telepíti a szerveroldali csomagokat (pl. @google/genai).
+  # Enélkül a Netlify nem tudja futtatni a háttérben lévő funkciót.
+  command = "npm install"
+  
+  # A mappa, amit közzétesz. Mivel ez egy egyszerű HTML/JS oldal, a gyökérkönyvtár a megfelelő.
+  publish = "/"
+
+# === Netlify Functions Beállítások ===
+# Itt adjuk meg a szerveroldali funkciók beállításait.
 [functions]
+  # A mappa, ahol a háttérben futó kódjaink (pl. gemini-proxy.ts) vannak.
   directory = "netlify/functions"
+  
+  # A 'bundler' csomagolja össze a kódot. Az 'esbuild' modern és gyors.
+  node_bundler = "esbuild"
+
+# === Átirányítási Szabály a Biztonságos API Híváshoz ===
+# Ez a rész köti össze a böngészőben futó alkalmazást a szerveren futó funkcióval.
+[[redirects]]
+  # Minden hívás, ami a böngészőből az '/api/' útvonalra érkezik...
+  from = "/api/*"
+  
+  # ...azt a Netlify irányítsa át a háttérben futó megfelelő funkcióhoz.
+  to = "/.netlify/functions/:splat"
+  
+  # A 200-as státusz azt jelenti, hogy ez egy "átírás", nem egy "átirányítás".
+  # A felhasználó nem látja a címsorban a változást, ami a helyes működés.
+  status = 200
