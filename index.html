@@ -5,8 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Suno Generate</title>
 
+    <!-- Ideiglenes: Tailwind CDN (később átvihetjük PostCSS/CLI-re) -->
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <!-- IMPORT MAP: minden React-függő ugyanarra a React 18.3.1 példányra köt -->
     <script type="importmap">
     {
       "imports": {
@@ -18,11 +20,12 @@
     }
     </script>
   </head>
+
   <body class="bg-slate-950 text-slate-100 min-h-screen">
     <div id="root" class="min-h-screen"></div>
     <noscript>Engedélyezd a JavaScriptet.</noscript>
 
-    <!-- CSAK EZ az egy script legyen itt -->
+    <!-- FONTOS: itt most csak EZ az egy modul legyen -->
     <script type="module" src="./main.js"></script>
   </body>
 </html>
