@@ -28,40 +28,7 @@
     <noscript>Engedélyezd a JavaScriptet.</noscript>
 
     <!-- EGYETLEN belépő modul – ütközésálló root-kezeléssel (#62 ellen) -->
-    <script type="module">
-      import React from "react";
-      import { createRoot } from "react-dom/client";
-      import { Wand2 } from "lucide-react";
-      import { GoogleGenerativeAI } from "@google/generative-ai";
-
-      // Biztonság: tisztítsuk a konténert és tartsuk meg a rootot globálisan
-      const container = document.getElementById("root");
-      if (!container) throw new Error("#root nem található");
-      container.innerHTML = "";
-
-      // Ha már létezik root (pl. véletlen dupla betöltés), ne hozzuk létre újra
-      const root = globalThis.__APP_ROOT__ || (globalThis.__APP_ROOT__ = createRoot(container));
-
-      // Minimal App – ezt később lecserélheted a sajátodra
-      function App() {
-        return (
-          React.createElement("main", { className: "mx-auto max-w-3xl p-6 space-y-6" },
-            React.createElement("header", { className: "flex items-center gap-3" },
-              React.createElement(Wand2, { className: "w-6 h-6" }),
-              React.createElement("h1", { className: "text-xl font-semibold" }, "Suno Generate")
-            ),
-            React.createElement("section", { className: "rounded-2xl bg-slate-900/60 p-6 border border-slate-800" },
-              React.createElement("p", { className: "opacity-80" },
-                "App betöltve. React importok egységesítve, Google GenAI SDK import rendben."
-              )
-            )
-          )
-        );
-      }
-
-      console.debug("GenAI SDK loaded:", typeof GoogleGenerativeAI === "function");
-      root.render(React.createElement(React.StrictMode, null, React.createElement(App)));
-    </script>
+    <script type="module" src="./main.js"></script>
 
     <!-- Fontos: ne legyen MÁS React-render script! (se /index.tsx, se /main.js) -->
   </body>
