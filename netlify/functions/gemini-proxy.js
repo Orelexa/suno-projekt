@@ -1,4 +1,4 @@
-const { GoogleGenAI, Type } = require("@google/genai");
+import { GoogleGenAI, Type } from "@google/genai";
 
 // A sémák biztonságosan a szerveren vannak definiálva.
 const SCHEMAS = {
@@ -66,9 +66,9 @@ const handler = async (event) => {
         console.error("Error in Netlify function:", error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: `Gemini API hiba: ${(error).message}` }),
+            body: JSON.stringify({ error: `Gemini API hiba: ${error.message}` }),
         };
     }
 };
 
-module.exports = { handler };
+export { handler };
