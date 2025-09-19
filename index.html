@@ -111,102 +111,125 @@ const QUICK_PRESETS = [
     { name: 'Trap 150 BPM', set: { style: ['trap'], inst: ['808 bass', 'hi-hat', 'snare', 'synth pads', 'modern drum kit'], tempo: 150, mood: 'dark, aggressive, confident', key: 'C minor', mix: 'heavy sub bass, crisp hats, stereo wideners', structure: 'Intro, Verse, Hook, Verse, Hook, Outro', negative: 'no orchestral strings' } }
 ];
 
-// --- GEMINI SERVICE ---
-const geminiService = (() => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const model = "gemini-2.5-flash";
+// --- GEMINI SERVICE and API KEY CHECK ---
+const { geminiService, isApiKeyMissing } = (() => {
+    try {
+        // This will throw a ReferenceError if 'process' is not defined, which is caught below.
+        if (!process.env.API_KEY) {
+            throw new Error("API_KEY environment variable is not set.");
+        }
+        
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const model = "gemini-2.5-flash";
 
-    async function callApi(prompt) {
-        try {
-            const response = await ai.models.generateContent({ model, contents: prompt });
-            const text = response.text;
-            if (!text) {
-                if (response?.candidates?.[0]?.finishReason === 'SAFETY') {
-                    throw new Error('A generálás a biztonsági beállítások miatt leállt.');
+        async function callApi(prompt) {
+            try {
+                const response = await ai.models.generateContent({ model, contents: prompt });
+                const text = response.text;
+                if (!text) {
+                    if (response?.candidates?.[0]?.finishReason === 'SAFETY') {
+                        throw new Error('A generálás a biztonsági beállítások miatt leállt.');
+                    }
+                    throw new Error("Az API nem adott vissza szöveget. A promptot valószínűleg blokkolta.");
                 }
-                throw new Error("Az API nem adott vissza szöveget. A promptot valószínűleg blokkolta.");
-            }
-            return text.trim();
-        } catch (error) {
-            console.error("Gemini API hívás sikertelen:", error);
-            let errorMessage = "Nem sikerült választ kapni az MI-től. Ellenőrizze az API kulcsot és a hálózati kapcsolatot.";
-            if (error.message.includes('API key not valid')) {
-                errorMessage = "Hiba: Az API kulcs érvénytelen. Kérem, ellenőrizze a megadott kulcsot.";
-            } else if (error.message.includes('SAFETY')) {
-                 errorMessage = 'A generálás a biztonsági beállítások miatt leállt.';
-            }
-            throw new Error(errorMessage);
-        }
-    }
-
-    async function callApiJson(prompt, schema) {
-        try {
-            const response = await ai.models.generateContent({
-                model,
-                contents: prompt,
-                config: { responseMimeType: "application/json", responseSchema: schema },
-            });
-            const text = response.text;
-            if (!text) {
-                 if (response?.candidates?.[0]?.finishReason === 'SAFETY') {
-                    throw new Error('A generálás a biztonsági beállítások miatt leállt.');
+                return text.trim();
+            } catch (error) {
+                console.error("Gemini API hívás sikertelen:", error);
+                let errorMessage = "Nem sikerült választ kapni az MI-től. Ellenőrizze az API kulcsot és a hálózati kapcsolatot.";
+                if (error.message.includes('API key not valid')) {
+                    errorMessage = "Hiba: Az API kulcs érvénytelen. Kérem, ellenőrizze a megadott kulcsot.";
+                } else if (error.message.includes('SAFETY')) {
+                    errorMessage = 'A generálás a biztonsági beállítások miatt leállt.';
                 }
-                throw new Error("Az API nem adott vissza szöveget. A promptot valószínűleg blokkolta.");
+                throw new Error(errorMessage);
             }
-            return JSON.parse(text);
-        } catch (error) {
-            console.error("Gemini API JSON hívás sikertelen:", error);
-            let errorMessage = "Nem sikerült JSON választ kapni az MI-től. Ellenőrizze az API kulcsot és a hálózati kapcsolatot.";
-             if (error.message.includes('API key not valid')) {
-                errorMessage = "Hiba: Az API kulcs érvénytelen. Kérem, ellenőrizze a megadott kulcsot.";
-            } else if (error.message.includes('SAFETY')) {
-                 errorMessage = 'A generálás a biztonsági beállítások miatt leállt.';
-            }
-            throw new Error(errorMessage);
         }
-    }
 
-    return {
-        generateTitle: (style, mood, theme) => {
-            const prompt = `Suggest one creative, short song title in English. Return only the title itself, no quotes. Style: ${style}. Mood: ${mood}. Theme: ${theme}.`;
-            return callApi(prompt);
-        },
-        suggestMoodAndTheme: (styles) => {
-            const prompt = `Suggest a creative mood (2-4 keywords) and a short theme description for a song. Respond in JSON with "mood" and "theme" keys. The song style is: ${styles.join(', ')}.`;
-            const schema = {
-                type: Type.OBJECT,
-                properties: {
-                    mood: { type: Type.STRING, description: "A few keywords for the mood." },
-                    theme: { type: Type.STRING, description: "A short sentence for the theme." },
-                },
-                required: ["mood", "theme"],
-            };
-            return callApiJson(prompt, schema);
-        },
-        translateToEnglish: (text) => {
-            const prompt = `Translate the following text to English. Return only the translated text. Text: "${text}"`;
-            return callApi(prompt);
-        },
-        generateLyrics: (theme, language) => {
-            const langMap = { en: 'English', hu: 'Hungarian', it: 'Italian' };
-            const languageName = langMap[language] || 'English';
-            const prompt = `Write song lyrics about "${theme}". The language must be ${languageName}. Structure with tags like [Verse] and [Chorus]. Return only the lyrics.`;
-            return callApi(prompt);
-        },
-        suggestInstruments: async (styles, allInstruments) => {
-            const prompt = `Based on the music style(s) '${styles.join(', ')}', suggest a list of 5 to 8 appropriate musical instruments. Return only a comma-separated list of instruments from these available options: ${allInstruments.join(', ')}.`;
-            const result = await callApi(prompt);
-            return result.split(',').map(inst => inst.trim());
-        },
-        shortenPrompt: (currentPrompt) => {
-            const prompt = `Shorten this music prompt to its essential keywords, keeping the original structure (e.g., 'Style: ...'). Be concise. Prompt: "${currentPrompt}"`;
-            return callApi(prompt);
-        },
-        expandPrompt: (currentPrompt) => {
-            const prompt = `Expand this music prompt with more creative details and descriptions, keeping the original structure (e.g., 'Style: ...'). Prompt: "${currentPrompt}"`;
-            return callApi(prompt);
+        async function callApiJson(prompt, schema) {
+            try {
+                const response = await ai.models.generateContent({
+                    model,
+                    contents: prompt,
+                    config: { responseMimeType: "application/json", responseSchema: schema },
+                });
+                const text = response.text;
+                if (!text) {
+                    if (response?.candidates?.[0]?.finishReason === 'SAFETY') {
+                        throw new Error('A generálás a biztonsági beállítások miatt leállt.');
+                    }
+                    throw new Error("Az API nem adott vissza szöveget. A promptot valószínűleg blokkolta.");
+                }
+                return JSON.parse(text);
+            } catch (error) {
+                console.error("Gemini API JSON hívás sikertelen:", error);
+                let errorMessage = "Nem sikerült JSON választ kapni az MI-től. Ellenőrizze az API kulcsot és a hálózati kapcsolatot.";
+                if (error.message.includes('API key not valid')) {
+                    errorMessage = "Hiba: Az API kulcs érvénytelen. Kérem, ellenőrizze a megadott kulcsot.";
+                } else if (error.message.includes('SAFETY')) {
+                    errorMessage = 'A generálás a biztonsági beállítások miatt leállt.';
+                }
+                throw new Error(errorMessage);
+            }
         }
-    };
+
+        const service = {
+            generateTitle: (style, mood, theme) => {
+                const prompt = `Suggest one creative, short song title in English. Return only the title itself, no quotes. Style: ${style}. Mood: ${mood}. Theme: ${theme}.`;
+                return callApi(prompt);
+            },
+            suggestMoodAndTheme: (styles) => {
+                const prompt = `Suggest a creative mood (2-4 keywords) and a short theme description for a song. Respond in JSON with "mood" and "theme" keys. The song style is: ${styles.join(', ')}.`;
+                const schema = {
+                    type: Type.OBJECT,
+                    properties: {
+                        mood: { type: Type.STRING, description: "A few keywords for the mood." },
+                        theme: { type: Type.STRING, description: "A short sentence for the theme." },
+                    },
+                    required: ["mood", "theme"],
+                };
+                return callApiJson(prompt, schema);
+            },
+            translateToEnglish: (text) => {
+                const prompt = `Translate the following text to English. Return only the translated text. Text: "${text}"`;
+                return callApi(prompt);
+            },
+            generateLyrics: (theme, language) => {
+                const langMap = { en: 'English', hu: 'Hungarian', it: 'Italian' };
+                const languageName = langMap[language] || 'English';
+                const prompt = `Write song lyrics about "${theme}". The language must be ${languageName}. Structure with tags like [Verse] and [Chorus]. Return only the lyrics.`;
+                return callApi(prompt);
+            },
+            suggestInstruments: async (styles, allInstruments) => {
+                const prompt = `Based on the music style(s) '${styles.join(', ')}', suggest a list of 5 to 8 appropriate musical instruments. Return only a comma-separated list of instruments from these available options: ${allInstruments.join(', ')}.`;
+                const result = await callApi(prompt);
+                return result.split(',').map(inst => inst.trim());
+            },
+            shortenPrompt: (currentPrompt) => {
+                const prompt = `Shorten this music prompt to its essential keywords, keeping the original structure (e.g., 'Style: ...'). Be concise. Prompt: "${currentPrompt}"`;
+                return callApi(prompt);
+            },
+            expandPrompt: (currentPrompt) => {
+                const prompt = `Expand this music prompt with more creative details and descriptions, keeping the original structure (e.g., 'Style: ...'). Prompt: "${currentPrompt}"`;
+                return callApi(prompt);
+            }
+        };
+        
+        return { geminiService: service, isApiKeyMissing: false };
+
+    } catch (e) {
+        console.error("Gemini Service Initialization Error:", e.message);
+        const errorMessage = "A Gemini API kulcs nincs beállítva, vagy a környezet helytelen. Az AI funkciók nem fognak működni.";
+        const dummyService = {
+            generateTitle: () => Promise.reject(new Error(errorMessage)),
+            suggestMoodAndTheme: () => Promise.reject(new Error(errorMessage)),
+            translateToEnglish: () => Promise.reject(new Error(errorMessage)),
+            generateLyrics: () => Promise.reject(new Error(errorMessage)),
+            suggestInstruments: () => Promise.reject(new Error(errorMessage)),
+            shortenPrompt: () => Promise.reject(new Error(errorMessage)),
+            expandPrompt: () => Promise.reject(new Error(errorMessage)),
+        };
+        return { geminiService: dummyService, isApiKeyMissing: true };
+    }
 })();
 
 
@@ -412,7 +435,25 @@ const App = () => {
     const shortenPrompt = () => runGeminiAction('shorten', () => geminiService.shortenPrompt(generatedPrompt), r => setGeneratedPrompt(r));
     const expandPrompt = () => runGeminiAction('expand', () => geminiService.expandPrompt(generatedPrompt), r => setGeneratedPrompt(r));
 
-    return React.createElement('div', { className: "max-w-7xl mx-auto p-3 sm:p-5" }, React.createElement(Header, { onSave: handleSave, onLoad: handleLoad, onExport: handleExport, onImport: handleImport, onReset: handleReset }), React.createElement('div', { className: "grid grid-cols-12 gap-4 auto-rows-fr" }, React.createElement('div', { className: "col-span-12 lg:col-span-7" }, React.createElement(BasicInfoCard, { settings, updateSetting, isLoading, onGenerateTitle: generateTitle, onSuggestMoodTheme: suggestMoodTheme, onTranslateTheme: translateTheme, onRegenerateLyrics: regenerateLyrics })), React.createElement('div', { className: "col-span-12 lg:col-span-5" }, React.createElement(StyleCard, { settings, updateSetting, toggleStyle: v => toggleArraySetting('styles', v), quickPresets: QUICK_PRESETS, onPresetChange: handlePresetChange })), React.createElement('div', { className: "col-span-12 lg:col-span-8" }, React.createElement(InstrumentationCard, { settings, instrumentGroups: INSTRUMENT_GROUPS, toggleInstrument: v => toggleArraySetting('instruments', v), updateSetting, isLoading, onSuggestInstruments: suggestInstruments })), React.createElement('div', { className: "col-span-12 lg:col-span-4" }, React.createElement(StructureCard, { settings, updateSetting })), React.createElement('div', { className: "col-span-12" }, React.createElement(OutputCard, { generatedPrompt, isLoading, onCopy: () => { navigator.clipboard.writeText(generatedPrompt); showToast('Prompt a vágólapra másolva!'); }, onShorten: shortenPrompt, onExpand: expandPrompt })), generatedLyrics && React.createElement('div', { className: "col-span-12" }, React.createElement(LyricsOutputCard, { lyrics: generatedLyrics, onCopy: () => { navigator.clipboard.writeText(generatedLyrics); showToast('Dalszöveg a vágólapra másolva!'); } }))), React.createElement(Toast, { message: toastMessage }));
+    const ApiKeyErrorBanner = () => {
+        if (!isApiKeyMissing) return null;
+        const bannerStyle = {
+            backgroundColor: '#b91c1c',
+            color: 'white',
+            padding: '1rem',
+            textAlign: 'center',
+            fontSize: '0.875rem',
+            lineHeight: '1.25rem',
+            marginBottom: '1.25rem',
+            borderRadius: '0.5rem',
+            border: '1px solid #f87171'
+        };
+        return React.createElement('div', { style: bannerStyle },
+            'Hiba: A Gemini API kulcs nincs beállítva. Az alkalmazás korlátozott módban fut, az AI funkciók nem fognak működni.'
+        );
+    };
+
+    return React.createElement('div', { className: "max-w-7xl mx-auto p-3 sm:p-5" }, React.createElement(ApiKeyErrorBanner), React.createElement(Header, { onSave: handleSave, onLoad: handleLoad, onExport: handleExport, onImport: handleImport, onReset: handleReset }), React.createElement('div', { className: "grid grid-cols-12 gap-4 auto-rows-fr" }, React.createElement('div', { className: "col-span-12 lg:col-span-7" }, React.createElement(BasicInfoCard, { settings, updateSetting, isLoading, onGenerateTitle: generateTitle, onSuggestMoodTheme: suggestMoodTheme, onTranslateTheme: translateTheme, onRegenerateLyrics: regenerateLyrics })), React.createElement('div', { className: "col-span-12 lg:col-span-5" }, React.createElement(StyleCard, { settings, updateSetting, toggleStyle: v => toggleArraySetting('styles', v), quickPresets: QUICK_PRESETS, onPresetChange: handlePresetChange })), React.createElement('div', { className: "col-span-12 lg:col-span-8" }, React.createElement(InstrumentationCard, { settings, instrumentGroups: INSTRUMENT_GROUPS, toggleInstrument: v => toggleArraySetting('instruments', v), updateSetting, isLoading, onSuggestInstruments: suggestInstruments })), React.createElement('div', { className: "col-span-12 lg:col-span-4" }, React.createElement(StructureCard, { settings, updateSetting })), React.createElement('div', { className: "col-span-12" }, React.createElement(OutputCard, { generatedPrompt, isLoading, onCopy: () => { navigator.clipboard.writeText(generatedPrompt); showToast('Prompt a vágólapra másolva!'); }, onShorten: shortenPrompt, onExpand: expandPrompt })), generatedLyrics && React.createElement('div', { className: "col-span-12" }, React.createElement(LyricsOutputCard, { lyrics: generatedLyrics, onCopy: () => { navigator.clipboard.writeText(generatedLyrics); showToast('Dalszöveg a vágólapra másolva!'); } }))), React.createElement(Toast, { message: toastMessage }));
 };
 
 // --- RENDER APP ---
