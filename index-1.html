@@ -1,0 +1,440 @@
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Suno Prompt Generátor - Gemini API</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'bg-dark': '#0b0f15',
+              'panel': '#121826',
+              'muted': '#8892a6',
+              'text-main': '#e6edf6',
+              'accent': '#66d9e8',
+              'line': '#1f2937',
+              'good': '#22c55e',
+              'warn': '#f59e0b',
+              'bad': '#ef4444',
+              'indigo-light': '#c7d2fe',
+              'indigo-dark': '#a5b4fc',
+              'btn-grad-from': '#1f9eaa',
+              'btn-grad-to': '#0f7f8a',
+            },
+          }
+        }
+      }
+    </script>
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.3.1",
+        "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+        "@google/genai": "https://esm.sh/@google/genai@0.14.0",
+        "lucide-react": "https://esm.sh/lucide-react@0.408.0"
+      }
+    }
+    </script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-gradient-to-b from-bg-dark to-[#0e141f] text-text-main font-sans">
+    <div id="root"></div>
+    <script type="module">
+// --- Main Application Script ---
+
+// 1. IMPORTS
+import React, { useState, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom/client';
+import { GoogleGenAI, Type } from "@google/genai";
+import { Save, FolderDown, Upload, Download, RotateCcw, Sparkles, LoaderCircle, Copy } from 'lucide-react';
+
+// --- CONSTANTS ---
+const initialSettings = {
+    title: '',
+    tempoMode: 'bpm',
+    tempo: '100',
+    tempoOriginalTag: false,
+    key: '',
+    vocalStyle: 'vocal',
+    vocalTypes: [],
+    lyrics: '',
+    lyricsLang: 'en',
+    mood: 'cinematic, dynamic, warm',
+    theme: '',
+    promptMode: 'compact',
+    styles: [],
+    styleExtra: '',
+    negative: '',
+    instruments: [],
+    instExtra: '',
+    structurePreset: '',
+    structure: '',
+    ending: 'clear, resolved ending (no fade-out)',
+    mix: ''
+};
+
+const STYLE_PRESETS = [
+    "electro swing", "blues", "slowfox", "samba", "mambo", "cha-cha-cha", "bossa nova", "tango", "waltz",
+    "soul", "rap", "EDM", "pop", "pop rock", "rock ballad", "indie", "metal", "rock & roll", "reggae",
+    "electro-classic", "techno", "rave", "techno dance", "disco", "R&B", "electronic dance", "gospel", "classical",
+    "folk", "ska", "jazz", "hip-hop", "ambient", "trance", "house", "trap", "synth-pop", "synthwave",
+    "cinematic orchestral", "baroque", "renaissance", "opera", "swing", "big band", "big band swing", "romantic piano",
+    "baroque pop", "romantic classical", "latin", "latin pop", "salsa", "flamenco", "chillwave", "electro",
+    "lofi hip hop", "jazz ballad", "folk acoustic", "drum and bass", "indie rock",
+    "grand orchestral", "epic orchestral"
+];
+
+const INSTRUMENT_GROUPS = [
+    { name: 'Vonósok', items: ['string ensemble', 'violin section', 'viola section', 'cello section', 'double basses', 'solo violin', 'solo cello', 'harp'] },
+    { name: 'Fafúvósok', items: ['flute', 'oboe', 'clarinet', 'bassoon', 'piccolo', 'alto saxophone', 'tenor saxophone', 'woodwind ensemble'] },
+    { name: 'Rézfúvósok', items: ['trumpet section', 'french horn section', 'trombone section', 'tuba', 'brass ensemble'] },
+    { name: 'Billentyűsök', items: ['piano', 'electric piano', 'harpsichord', 'organ', 'synthesizer', 'synth pads', 'analog arpeggios', 'sub bass', '808 bass'] },
+    { name: 'Ütősök / Dobok', items: ['timpani', 'orchestral snare', 'cymbals', 'modern drum kit', 'electronic drums', 'shaker', 'congas', 'bongos', 'hi-hat', 'snare'] },
+    { name: 'Pop / Band', items: ['electric guitar', 'acoustic guitar', 'bass guitar', 'upright bass', 'mandolin', 'fiddle'] },
+    { name: 'Kórus / Vokál', items: ['choir (oohs)', 'female choir', 'male choir', 'mixed choir', 'solo vocal (female)', 'solo vocal (male)'] }
+];
+
+const ALL_AVAILABLE_INSTRUMENTS = INSTRUMENT_GROUPS.flatMap(group => group.items);
+
+const QUICK_PRESETS = [
+    { name: 'Cinematic Ballad', set: { style: ['cinematic orchestral', 'romantic piano', 'jazz ballad'], inst: ['string ensemble', 'solo cello', 'piano', 'french horn section', 'timpani', 'modern drum kit'], tempo: 72, mood: 'emotional, warm, expansive', key: 'A minor', mix: 'wide strings, gentle tape sat, clear vocal', structure: 'Intro, Verse, Chorus, Verse, Chorus, Bridge, Chorus, Outro', negative: 'no heavy distortion, no EDM drop' } },
+    { name: 'EDM Drop', set: { style: ['EDM', 'trance', 'house'], inst: ['synthesizer', 'synth pads', 'sub bass', 'modern drum kit'], tempo: 128, mood: 'energetic, euphoric, bright', key: 'E minor', mix: 'sidechain pump, tight low end', structure: 'Intro, Build, Drop, Break, Drop, Outro', negative: 'no guitars, no orchestral strings' } },
+    { name: 'Retro Swing', set: { style: ['swing', 'big band', 'electro swing'], inst: ['trumpet section', 'trombone section', 'alto saxophone', 'tenor saxophone', 'modern drum kit', 'upright bass'], tempo: 110, mood: 'playful, vintage, lively', key: 'C major', mix: 'tape vibe, crisp brass', structure: 'Intro, A, A, B, A, Outro', negative: 'no modern EDM synths' } },
+    { name: 'Epic Orchestral', set: { style: ['epic orchestral', 'cinematic orchestral'], inst: ['string ensemble', 'brass ensemble', 'timpani', 'orchestral snare', 'choir (oohs)'], tempo: 90, mood: 'majestic, powerful, dramatic', key: 'D minor', mix: 'wide dynamic range, reverb on brass', structure: 'Overture, Theme, Development, Recap, Coda', negative: 'no electronic synths' } },
+    { name: 'Lo-fi Chillhop', set: { style: ['lofi hip hop'], inst: ['electric piano', 'synth pads', 'upright bass', 'modern drum kit'], tempo: 80, mood: 'relaxed, nostalgic, warm', key: 'F major', mix: 'vinyl crackle, soft compression', structure: 'Intro, Loop A, Loop B, Outro', negative: 'no aggressive drums' } },
+    { name: 'Trap 150 BPM', set: { style: ['trap'], inst: ['808 bass', 'hi-hat', 'snare', 'synth pads', 'modern drum kit'], tempo: 150, mood: 'dark, aggressive, confident', key: 'C minor', mix: 'heavy sub bass, crisp hats, stereo wideners', structure: 'Intro, Verse, Hook, Verse, Hook, Outro', negative: 'no orchestral strings' } }
+];
+
+// --- GEMINI SERVICE ---
+const geminiService = (() => {
+    // The API key provided by the user is inserted here.
+    const API_KEY = "AIzaSyDfY2UFF_9TdXEc0NX5LWfKonD_YfCjqHY";
+
+    if (!API_KEY || API_KEY === "YOUR_API_KEY_HERE") {
+        alert("Hiba: A Gemini API kulcs hiányzik vagy érvénytelen. Kérem, szerkessze az index.html fájlt és adja meg a kulcsot.");
+        const dummyService = {
+            generateTitle: () => Promise.reject(new Error("API kulcs hiányzik.")),
+            suggestMoodAndTheme: () => Promise.reject(new Error("API kulcs hiányzik.")),
+            translateToEnglish: () => Promise.reject(new Error("API kulcs hiányzik.")),
+            generateLyrics: () => Promise.reject(new Error("API kulcs hiányzik.")),
+            suggestInstruments: () => Promise.reject(new Error("API kulcs hiányzik.")),
+            shortenPrompt: () => Promise.reject(new Error("API kulcs hiányzik.")),
+            expandPrompt: () => Promise.reject(new Error("API kulcs hiányzik.")),
+        };
+        return dummyService;
+    }
+
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
+    const model = "gemini-2.5-flash";
+
+    async function callApi(prompt) {
+        try {
+            const response = await ai.models.generateContent({ model, contents: prompt });
+            const text = response.text;
+            if (!text) {
+                if (response?.candidates?.[0]?.finishReason === 'SAFETY') {
+                    throw new Error('A generálás a biztonsági beállítások miatt leállt.');
+                }
+                throw new Error("Az API nem adott vissza szöveget. A promptot valószínűleg blokkolta.");
+            }
+            return text.trim();
+        } catch (error) {
+            console.error("Gemini API hívás sikertelen:", error);
+            let errorMessage = "Nem sikerült választ kapni az MI-től. Ellenőrizze az API kulcsot és a hálózati kapcsolatot.";
+            if (error.message.includes('API key not valid')) {
+                errorMessage = "Hiba: Az API kulcs érvénytelen. Kérem, ellenőrizze a megadott kulcsot.";
+            } else if (error.message.includes('SAFETY')) {
+                 errorMessage = 'A generálás a biztonsági beállítások miatt leállt.';
+            }
+            throw new Error(errorMessage);
+        }
+    }
+
+    async function callApiJson(prompt, schema) {
+        try {
+            const response = await ai.models.generateContent({
+                model,
+                contents: prompt,
+                config: { responseMimeType: "application/json", responseSchema: schema },
+            });
+            const text = response.text;
+            if (!text) {
+                 if (response?.candidates?.[0]?.finishReason === 'SAFETY') {
+                    throw new Error('A generálás a biztonsági beállítások miatt leállt.');
+                }
+                throw new Error("Az API nem adott vissza szöveget. A promptot valószínűleg blokkolta.");
+            }
+            return JSON.parse(text);
+        } catch (error) {
+            console.error("Gemini API JSON hívás sikertelen:", error);
+            let errorMessage = "Nem sikerült JSON választ kapni az MI-től. Ellenőrizze az API kulcsot és a hálózati kapcsolatot.";
+             if (error.message.includes('API key not valid')) {
+                errorMessage = "Hiba: Az API kulcs érvénytelen. Kérem, ellenőrizze a megadott kulcsot.";
+            } else if (error.message.includes('SAFETY')) {
+                 errorMessage = 'A generálás a biztonsági beállítások miatt leállt.';
+            }
+            throw new Error(errorMessage);
+        }
+    }
+
+    return {
+        generateTitle: (style, mood, theme) => {
+            const prompt = `Suggest one creative, short song title in English. Return only the title itself, no quotes. Style: ${style}. Mood: ${mood}. Theme: ${theme}.`;
+            return callApi(prompt);
+        },
+        suggestMoodAndTheme: (styles) => {
+            const prompt = `Suggest a creative mood (2-4 keywords) and a short theme description for a song. Respond in JSON with "mood" and "theme" keys. The song style is: ${styles.join(', ')}.`;
+            const schema = {
+                type: Type.OBJECT,
+                properties: {
+                    mood: { type: Type.STRING, description: "A few keywords for the mood." },
+                    theme: { type: Type.STRING, description: "A short sentence for the theme." },
+                },
+                required: ["mood", "theme"],
+            };
+            return callApiJson(prompt, schema);
+        },
+        translateToEnglish: (text) => {
+            const prompt = `Translate the following text to English. Return only the translated text. Text: "${text}"`;
+            return callApi(prompt);
+        },
+        generateLyrics: (theme, language) => {
+            const langMap = { en: 'English', hu: 'Hungarian', it: 'Italian' };
+            const languageName = langMap[language] || 'English';
+            const prompt = `Write song lyrics about "${theme}". The language must be ${languageName}. Structure with tags like [Verse] and [Chorus]. Return only the lyrics.`;
+            return callApi(prompt);
+        },
+        suggestInstruments: async (styles, allInstruments) => {
+            const prompt = `Based on the music style(s) '${styles.join(', ')}', suggest a list of 5 to 8 appropriate musical instruments. Return only a comma-separated list of instruments from these available options: ${allInstruments.join(', ')}.`;
+            const result = await callApi(prompt);
+            return result.split(',').map(inst => inst.trim());
+        },
+        shortenPrompt: (currentPrompt) => {
+            const prompt = `Shorten this music prompt to its essential keywords, keeping the original structure (e.g., 'Style: ...'). Be concise. Prompt: "${currentPrompt}"`;
+            return callApi(prompt);
+        },
+        expandPrompt: (currentPrompt) => {
+            const prompt = `Expand this music prompt with more creative details and descriptions, keeping the original structure (e.g., 'Style: ...'). Prompt: "${currentPrompt}"`;
+            return callApi(prompt);
+        }
+    };
+})();
+
+
+// --- UI COMPONENTS (using React.createElement to avoid JSX transpilation) ---
+
+const Card = ({ title, children, className = '' }) => React.createElement('section', { className: `bg-panel border border-line rounded-xl p-4 h-full ${className}` }, React.createElement('h2', { className: "text-sm font-semibold mb-3 text-indigo-light tracking-wide" }, title), children);
+const FormLabel = ({ htmlFor, children, className }) => React.createElement('label', { htmlFor, className: `block text-xs text-muted mb-1 mt-3 ${className || ''}` }, children);
+
+const Chip = ({ label, isActive, onClick }) => {
+    const baseClasses = "text-xs cursor-pointer user-select-none rounded-full px-3 py-1.5 border transition-all duration-200";
+    const activeClasses = "bg-accent/10 border-accent text-accent font-semibold";
+    const inactiveClasses = "bg-bg-dark/50 border-line hover:border-slate-600 text-slate-300";
+    return React.createElement('div', { onClick, className: `${baseClasses} ${isActive ? activeClasses : inactiveClasses}` }, label);
+};
+
+const GeminiButton = ({ onClick, isLoading, children, title, className }) => React.createElement('button', { onClick, disabled: isLoading, title, className: `flex items-center justify-center gap-2 text-sm bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-wait ${className || ''}`}, isLoading ? React.createElement(React.Fragment, null, React.createElement(LoaderCircle, { size: 16, className: "animate-spin" }), React.createElement('span', null, "Feldolgozás...")) : React.createElement(React.Fragment, null, React.createElement(Sparkles, { size: 16 }), children));
+const Toast = ({ message }) => {
+    const [visible, setVisible] = useState(false);
+    useEffect(() => {
+        if (message) {
+            setVisible(true);
+            const timer = setTimeout(() => { setVisible(false); }, 2800);
+            return () => clearTimeout(timer);
+        }
+    }, [message]);
+    return React.createElement('div', { className: `fixed bottom-5 right-5 bg-panel border border-accent/50 text-text-main px-6 py-3 rounded-lg shadow-2xl transition-all duration-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`, style: { pointerEvents: visible ? 'auto' : 'none' }}, message);
+};
+
+const ActionButton = ({ onClick, title, children }) => React.createElement('button', { onClick, title, className: "flex items-center gap-2 bg-panel hover:bg-slate-700 border border-line text-slate-300 px-3 py-2 rounded-lg text-sm transition-colors" }, children);
+const Header = ({ onSave, onLoad, onExport, onImport, onReset }) => React.createElement('header', { className: "flex flex-col sm:flex-row gap-4 items-center justify-between mb-5" }, React.createElement('h1', { className: "text-xl font-bold text-text-main" }, "🎛️ Suno Prompt Generátor", React.createElement('span', { className: "text-muted text-sm ml-2 font-normal" }, "(HU felület → EN prompt, Gemini API)")), React.createElement('div', { className: "flex gap-2 flex-wrap justify-center" }, React.createElement(ActionButton, { onClick: onSave, title: "Beállítások mentése a böngészőbe" }, React.createElement(Save, { size: 16 }), " Mentés"), React.createElement(ActionButton, { onClick: onLoad, title: "Beállítások betöltése a böngészőből" }, React.createElement(FolderDown, { size: 16 }), " Betöltés"), React.createElement(ActionButton, { onClick: onExport, title: "Beállítások exportálása fájlba" }, React.createElement(Download, { size: 16 }), " Export"), React.createElement(ActionButton, { onClick: onImport, title: "Beállítások importálása fájlból" }, React.createElement(Upload, { size: 16 }), " Import"), React.createElement(ActionButton, { onClick: onReset, title: "Minden mező visszaállítása" }, React.createElement(RotateCcw, { size: 16 }), " Visszaállítás")));
+
+const Input = (props) => {
+    const { className, children, ...otherProps } = props; // Destructure and ignore children
+    return React.createElement('input', { ...otherProps, className: `w-full bg-bg-dark/50 text-text-main border border-line rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition ${className || ''}` });
+};
+const Select = (props) => {
+    const { children, className, ...otherProps } = props;
+    return React.createElement('select', { ...otherProps, className: `w-full bg-bg-dark/50 text-text-main border border-line rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition ${className || ''}` }, children);
+};
+const Textarea = (props) => {
+    const { children, className, ...otherProps } = props; // Destructure and ignore children
+    return React.createElement('textarea', { ...otherProps, className: `w-full bg-bg-dark/50 text-text-main border border-line rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition resize-y min-h-[80px] ${className || ''}` });
+};
+
+const BasicInfoCard = ({ settings, updateSetting, isLoading, onGenerateTitle, onSuggestMoodTheme, onTranslateTheme, onRegenerateLyrics }) => {
+    const toggleVocalType = (v) => {
+        const current = settings.vocalTypes;
+        updateSetting('vocalTypes', current.includes(v) ? current.filter(vt => vt !== v) : [...current, v]);
+    };
+    return React.createElement(Card, { title: "Alapok" }, React.createElement(FormLabel, { htmlFor: "title" }, "Munkacím (nem kötelező)"), React.createElement('div', { className: "flex gap-2" }, React.createElement(Input, { id: "title", type: "text", placeholder: "pl. Éjféli Swing", value: settings.title, onChange: e => updateSetting('title', e.target.value) }), React.createElement(GeminiButton, { onClick: onGenerateTitle, isLoading: isLoading.title, title: "Cím generálása a téma alapján", className: "px-3" }, "✨")), React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3" }, React.createElement('div', null, React.createElement(FormLabel, null, "Vokál"), React.createElement('div', { className: "flex gap-2 flex-wrap" }, React.createElement(Chip, { label: "Vokállal", isActive: settings.vocalStyle === 'vocal', onClick: () => updateSetting('vocalStyle', 'vocal') }), React.createElement(Chip, { label: "Instrumentális", isActive: settings.vocalStyle === 'instrumental', onClick: () => updateSetting('vocalStyle', 'instrumental') }), React.createElement(Chip, { label: "Csak kórus", isActive: settings.vocalStyle === 'choir', onClick: () => updateSetting('vocalStyle', 'choir') }))), React.createElement('div', null, React.createElement(FormLabel, null, "Vokál Típus"), React.createElement('div', { className: "flex gap-2 flex-wrap" }, ['male', 'female', 'child'].map(v => React.createElement(Chip, { key: v, label: {male: 'Férfi', female: 'Női', child: 'Gyerek'}[v], isActive: settings.vocalTypes.includes(v), onClick: () => toggleVocalType(v) }))))), settings.vocalStyle === 'vocal' && React.createElement('div', { className: "bg-slate-800/50 border border-line p-3 rounded-lg mt-4" }, React.createElement(FormLabel, null, "Dalszöveg (beilleszthető)"), React.createElement(Textarea, { placeholder: "[verse]...\n[chorus]...", value: settings.lyrics, onChange: e => updateSetting('lyrics', e.target.value) }), React.createElement('div', { className: "flex gap-2 mt-2 items-center" }, React.createElement(GeminiButton, { onClick: onRegenerateLyrics, isLoading: isLoading.lyrics, className: "flex-grow" }, "Dalszöveg generálása"), React.createElement(Select, { value: settings.lyricsLang, onChange: e => updateSetting('lyricsLang', e.target.value), className: "w-auto" }, React.createElement('option', { value: "en" }, "English"), React.createElement('option', { value: "hu" }, "Magyar"), React.createElement('option', { value: "it" }, "Italiano")))), React.createElement(FormLabel, { htmlFor: "theme" }, "Téma / rövid leírás (HU vagy EN)"), React.createElement(Textarea, { id: "theme", placeholder: "pl. Egy élettel teli vintage hangulat, modern lüktetéssel.", value: settings.theme, onChange: e => updateSetting('theme', e.target.value) }), React.createElement('div', { className: "flex gap-2 flex-wrap mt-2" }, React.createElement(GeminiButton, { onClick: onTranslateTheme, isLoading: isLoading.translate }, "HU → EN fordítás"), React.createElement(GeminiButton, { onClick: onSuggestMoodTheme, isLoading: isLoading.moodTheme }, "Hangulat & Téma javaslat")));
+};
+const StyleCard = ({ settings, updateSetting, toggleStyle, quickPresets, onPresetChange }) => React.createElement(Card, { title: "Formátum & Stílus" }, React.createElement(FormLabel, { htmlFor: "quickPresetsDropdown" }, "Gyors sablonok"), React.createElement(Select, { id: "quickPresetsDropdown", value: "", onChange: e => onPresetChange(e.target.value) }, React.createElement('option', { value: "" }, "Válassz egy sablont…"), quickPresets.map(p => React.createElement('option', { key: p.name, value: p.name }, p.name))), React.createElement(FormLabel, { htmlFor: "mood" }, "Hangulat (vesszővel elválasztva)"), React.createElement(Input, { id: "mood", type: "text", placeholder: "romantikus, filmes, drámai", value: settings.mood, onChange: e => updateSetting('mood', e.target.value) }), React.createElement(FormLabel, null, "Zenei stílus (több is lehet)"), React.createElement('div', { className: "flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1 bg-black/20 rounded-lg" }, STYLE_PRESETS.map(style => React.createElement(Chip, { key: style, label: style, isActive: settings.styles.includes(style), onClick: () => toggleStyle(style) }))), React.createElement(FormLabel, { htmlFor: "styleExtra" }, "Extra stílus-megjegyzés"), React.createElement(Input, { id: "styleExtra", type: "text", placeholder: "pl. 1930-as évekbeli rádió textúra", value: settings.styleExtra, onChange: e => updateSetting('styleExtra', e.target.value) }), React.createElement(FormLabel, { htmlFor: "negative" }, "Negatív / kerülendő elemek"), React.createElement(Input, { id: "negative", type: "text", placeholder: "nincs torzítás, kerüld az EDM-et", value: settings.negative, onChange: e => updateSetting('negative', e.target.value) }));
+const InstrumentationCard = ({ settings, instrumentGroups, toggleInstrument, updateSetting, isLoading, onSuggestInstruments }) => React.createElement(Card, { title: "Hangszerelés" }, React.createElement('div', { className: "space-y-3" }, instrumentGroups.map(group => React.createElement('details', { key: group.name, className: "bg-slate-800/50 rounded-lg border border-line", open: true }, React.createElement('summary', { className: "font-semibold text-indigo-dark cursor-pointer p-2 list-none" }, group.name), React.createElement('div', { className: "p-2 border-t border-line flex flex-wrap gap-2" }, group.items.map(instrument => React.createElement(Chip, { key: instrument, label: instrument, isActive: settings.instruments.includes(instrument), onClick: () => toggleInstrument(instrument) })))))), React.createElement('div', { className: "mt-4" }, React.createElement(GeminiButton, { onClick: onSuggestInstruments, isLoading: isLoading.instruments, className: "w-full" }, "Hangszerek javaslása")), React.createElement(FormLabel, { htmlFor: "instExtra" }, "Extra hangszerelés"), React.createElement(Input, { id: "instExtra", type: "text", placeholder: "pl. tompított trombita, pizzicato cselló", value: settings.instExtra, onChange: e => updateSetting('instExtra', e.target.value) }));
+const StructureCard = ({ settings, updateSetting }) => {
+    const structurePresets = ["Intro, Verse, Chorus, Verse, Chorus, Bridge, Chorus, Outro", "Intro, A, A, B, A, Outro", "Intro, Build, Drop, Break, Drop, Outro", "Overture, Theme, Development, Recap, Coda"];
+    const endingOptions = ["clear, resolved ending (no fade-out)", "cold stop (sudden end)", "long reverb tail", "gradual fade-out"];
+    const handleStructurePresetChange = e => {
+        const value = e.target.value;
+        updateSetting('structurePreset', value);
+        if (value) updateSetting('structure', value);
+    };
+    return React.createElement(Card, { title: "Szerkezet & Mix" }, React.createElement(FormLabel, { htmlFor: "structurePreset" }, "Szerkezet (sablon)"), React.createElement(Select, { id: "structurePreset", value: settings.structurePreset, onChange: handleStructurePresetChange }, React.createElement('option', { value: "" }, "Egyéni / Nincs"), structurePresets.map(p => React.createElement('option', { key: p, value: p }, p))), React.createElement(FormLabel, { htmlFor: "structure" }, "Saját szerkezet"), React.createElement(Textarea, { id: "structure", placeholder: "Írja le a szerkezetet itt...", value: settings.structure, onChange: e => updateSetting('structure', e.target.value) }), React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3" }, React.createElement('div', null, React.createElement(FormLabel, { htmlFor: "tempo" }, "Tempó (BPM)"), React.createElement(Input, { id: "tempo", type: "number", min: "40", max: "220", value: settings.tempo, onChange: e => updateSetting('tempo', e.target.value) })), React.createElement('div', null, React.createElement(FormLabel, { htmlFor: "key" }, "Hangnem"), React.createElement(Select, { id: "key", value: settings.key, onChange: e => updateSetting('key', e.target.value) }, React.createElement('option', { value: "" }, "Nincs megadva hangnem"), ['C major', 'G major', 'D major', 'A major', 'E major', 'B major', 'F# major', 'F major', 'A minor', 'E minor', 'B minor', 'F# minor', 'C# minor', 'G# minor', 'D minor'].map(k => React.createElement('option', { key: k }, k))))), React.createElement(FormLabel, { htmlFor: "ending" }, "Befejezés"), React.createElement(Select, { id: "ending", value: settings.ending, onChange: e => updateSetting('ending', e.target.value) }, endingOptions.map(opt => React.createElement('option', { key: opt, value: opt }, opt))), React.createElement(FormLabel, { htmlFor: "mix" }, "Mix / Produkció"), React.createElement(Input, { id: "mix", type: "text", placeholder: "Feszes mélyek, széles vonósok...", value: settings.mix, onChange: e => updateSetting('mix', e.target.value) }));
+};
+
+const LengthIndicator = ({ length }) => {
+    let dotClass = 'bg-good', hintText = 'Ideális';
+    if (length > 1800) { dotClass = 'bg-bad'; hintText = 'Túl hosszú'; }
+    else if (length > 1000) { dotClass = 'bg-warn'; hintText = 'Kicsit hosszú'; }
+    return React.createElement('div', { className: "flex items-center gap-2" }, React.createElement('span', { className: `w-2.5 h-2.5 rounded-full ${dotClass}` }), React.createElement('span', { className: "text-xs text-muted" }, hintText));
+};
+const OutputCard = ({ generatedPrompt, isLoading, onCopy, onShorten, onExpand }) => React.createElement(Card, { title: "Prompt Kimenet" }, React.createElement('div', { className: "flex flex-col sm:flex-row gap-2 items-center mb-3" }, React.createElement('button', { onClick: onCopy, className: "w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-2 text-sm bg-btn-grad-from hover:bg-btn-grad-to text-white px-4 py-2 rounded-lg font-semibold transition-all" }, React.createElement(Copy, { size: 16 }), "Másolás"), React.createElement('div', { className: "flex-grow flex gap-2 w-full sm:w-auto" }, React.createElement(GeminiButton, { onClick: onShorten, isLoading: isLoading.shorten, className: "w-full" }, "Rövidítés"), React.createElement(GeminiButton, { onClick: onExpand, isLoading: isLoading.expand, className: "w-full" }, "Bővítés")), React.createElement('div', { className: "ml-auto flex items-center gap-4 flex-shrink-0" }, React.createElement('span', { className: "text-sm font-mono bg-slate-800 px-3 py-1 rounded-md text-slate-400" }, `${generatedPrompt.length} ch`), React.createElement(LengthIndicator, { length: generatedPrompt.length }))), React.createElement('pre', { className: "w-full bg-bg-dark/50 border border-line rounded-lg p-4 text-sm whitespace-pre-wrap min-h-[140px] font-sans text-slate-300" }, generatedPrompt || 'A generált prompt itt fog megjelenni...'), React.createElement('p', { className: "text-xs text-muted mt-2" }, "A Prompt mező a zenei leírást tartalmazza. A dalszöveget a Suno külön kezeli."));
+const LyricsOutputCard = ({ lyrics, onCopy }) => React.createElement(Card, { title: "Dalszöveg Kimenet" }, React.createElement('div', { className: "flex items-center mb-3" }, React.createElement('button', { onClick: onCopy, className: "flex items-center gap-2 text-sm bg-panel hover:bg-slate-700 border border-line text-slate-300 px-3 py-2 rounded-lg transition-colors" }, React.createElement(Copy, { size: 16 }), "Szöveg másolása")), React.createElement('textarea', { readOnly: true, value: lyrics, className: "w-full bg-bg-dark/50 border border-line rounded-lg p-4 text-sm whitespace-pre-wrap min-h-[140px] font-sans text-slate-300 resize-y" }), React.createElement('p', { className: "text-xs text-muted mt-2" }, "A dalszöveg a Suno AI által elvárt formátumban van. Ezt illessze be a dalszöveg mezőbe."));
+
+
+// --- APP COMPONENT ---
+const App = () => {
+    const [settings, setSettings] = useState(initialSettings);
+    const [generatedPrompt, setGeneratedPrompt] = useState('');
+    const [generatedLyrics, setGeneratedLyrics] = useState('');
+    const [isLoading, setIsLoading] = useState({});
+    const [toastMessage, setToastMessage] = useState(null);
+
+    const showToast = useCallback((message) => {
+        setToastMessage(message);
+    }, []);
+
+    const handleLoading = (key, value) => setIsLoading(prev => ({ ...prev, [key]: value }));
+    const updateSetting = (key, value) => setSettings(prev => ({ ...prev, [key]: value }));
+    const toggleArraySetting = (key, value) => {
+        setSettings(prev => {
+            const currentValues = prev[key] || [];
+            return { ...prev, [key]: currentValues.includes(value) ? currentValues.filter(item => item !== value) : [...currentValues, value] };
+        });
+    };
+    
+    const buildPromptText = useCallback(() => {
+        const { title, tempoMode, tempo, tempoOriginalTag, key, vocalStyle, vocalTypes, mood, styles, styleExtra, instruments, instExtra, negative, structure, ending, mix, theme, promptMode } = settings;
+        const promptParts = [];
+        if (vocalStyle === 'instrumental') promptParts.push('Instrumental');
+        else if (vocalTypes.length > 0) promptParts.push(vocalTypes.map(vt => `${vt} vocal`).join(', '));
+        
+        const styleString = [...styles, ...mood.split(',').map(s => s.trim()).filter(Boolean), styleExtra].filter(Boolean).join(', ');
+        if (styleString) promptParts.push(`Style: ${styleString}`);
+
+        const instString = [...instruments, instExtra].filter(Boolean).join(', ');
+        if (instString) promptParts.push(`Instruments: ${instString}`);
+
+        if (tempoMode === 'bpm' && tempo) promptParts.push(`Tempo: ${tempo} BPM`);
+        else if (tempoOriginalTag) promptParts.push(`Tempo: original BPM`);
+
+        if (key) promptParts.push(`Key: ${key}`);
+        if (structure) promptParts.push(`Structure: ${structure}`);
+        if (ending) promptParts.push(`Ending: ${ending}`);
+        if (mix) promptParts.push(`Mix: ${mix}`);
+        if (negative) promptParts.push(`Negative Keywords: ${negative}`);
+        if (title) promptParts.push(`Title: ${title}`);
+        if (theme && promptMode === 'verbose') promptParts.push(`Theme: ${theme}`);
+        
+        return promptParts.join('\n');
+    }, [settings]);
+
+    const buildLyricsOutput = useCallback((lyrics) => {
+        const stanzas = lyrics.split(/\n\s*\n/);
+        const tags = ['[Verse]', '[Chorus]', '[Verse]', '[Chorus]', '[Bridge]', '[Chorus]', '[Outro]'];
+        return stanzas.map((stanza, index) => {
+            const trimmedStanza = stanza.trim();
+            if (!trimmedStanza) return '';
+            const hasTag = /^\[(verse|chorus|bridge|intro|outro|pre-chorus|hook|instrumental)\]/i.test(trimmedStanza);
+            if (hasTag) return trimmedStanza;
+            const tag = tags[index] || '[Verse]';
+            return `${tag}\n${trimmedStanza}`;
+        }).filter(Boolean).join('\n\n');
+    }, []);
+
+    useEffect(() => {
+        const prompt = buildPromptText();
+        setGeneratedPrompt(prompt);
+        if (settings.lyrics.trim()) {
+            setGeneratedLyrics(buildLyricsOutput(settings.lyrics));
+        } else {
+            setGeneratedLyrics('');
+        }
+    }, [settings, buildPromptText, buildLyricsOutput]);
+
+    const handleReset = () => { setSettings(initialSettings); showToast('Űrlap visszaállítva.'); };
+    const handleSave = () => { localStorage.setItem('sunoPromptGeneratorSettings', JSON.stringify(settings)); showToast('Beállítások mentve a böngészőbe!'); };
+    const handleLoad = () => {
+        const saved = localStorage.getItem('sunoPromptGeneratorSettings');
+        if (saved) { setSettings(JSON.parse(saved)); showToast('Beállítások betöltve a böngészőből!'); } 
+        else { showToast('Nincsenek mentett beállítások.'); }
+    };
+    const handleExport = () => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' }));
+        a.download = 'suno_prompt_settings.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showToast('Beállítások exportálva JSON fájlba.');
+    };
+    const handleImport = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json';
+        input.onchange = e => {
+            const file = e.target.files?.[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        setSettings({ ...initialSettings, ...JSON.parse(event.target.result) });
+                        showToast('Beállítások sikeresen importálva!');
+                    } catch { showToast('Hiba: Érvénytelen JSON fájl.'); }
+                };
+                reader.readAsText(file);
+            }
+        };
+        input.click();
+    };
+    const handlePresetChange = (presetName) => {
+        const preset = QUICK_PRESETS.find(p => p.name === presetName);
+        if (preset) {
+            setSettings(prev => ({ ...initialSettings, ...prev, styles: preset.set.style || [], instruments: preset.set.inst || [], tempo: String(preset.set.tempo ?? prev.tempo), mood: preset.set.mood ?? prev.mood, key: preset.set.key ?? prev.key, mix: preset.set.mix ?? prev.mix, structure: preset.set.structure ?? prev.structure, negative: preset.set.negative ?? prev.negative }));
+            showToast(`"${presetName}" sablon alkalmazva.`);
+        }
+    };
+    const runGeminiAction = async (actionKey, serviceCall, onSuccess) => {
+        handleLoading(actionKey, true);
+        try {
+            const result = await serviceCall();
+            if (result !== null && result !== undefined) onSuccess(result);
+            else showToast(`A Gemini hívás (${actionKey}) nem adott vissza eredményt.`);
+        } catch (error) {
+            showToast(`Hiba: ${error.message}`);
+        } finally {
+            handleLoading(actionKey, false);
+        }
+    };
+    const generateTitle = () => runGeminiAction('title', () => geminiService.generateTitle(settings.styles.join(', '), settings.mood, settings.theme), r => updateSetting('title', r));
+    const suggestMoodTheme = () => runGeminiAction('moodTheme', () => geminiService.suggestMoodAndTheme(settings.styles), r => { updateSetting('mood', r.mood); updateSetting('theme', r.theme); });
+    const translateTheme = () => runGeminiAction('translate', () => geminiService.translateToEnglish(settings.theme), r => updateSetting('theme', r));
+    const regenerateLyrics = () => runGeminiAction('lyrics', () => geminiService.generateLyrics(settings.theme || 'a song about love', settings.lyricsLang), r => updateSetting('lyrics', r));
+    const suggestInstruments = () => runGeminiAction('instruments', () => geminiService.suggestInstruments(settings.styles, ALL_AVAILABLE_INSTRUMENTS), r => updateSetting('instruments', r));
+    const shortenPrompt = () => runGeminiAction('shorten', () => geminiService.shortenPrompt(generatedPrompt), r => setGeneratedPrompt(r));
+    const expandPrompt = () => runGeminiAction('expand', () => geminiService.expandPrompt(generatedPrompt), r => setGeneratedPrompt(r));
+
+    return React.createElement('div', { className: "max-w-7xl mx-auto p-3 sm:p-5" }, React.createElement(Header, { onSave: handleSave, onLoad: handleLoad, onExport: handleExport, onImport: handleImport, onReset: handleReset }), React.createElement('div', { className: "grid grid-cols-12 gap-4 auto-rows-fr" }, React.createElement('div', { className: "col-span-12 lg:col-span-7" }, React.createElement(BasicInfoCard, { settings, updateSetting, isLoading, onGenerateTitle: generateTitle, onSuggestMoodTheme: suggestMoodTheme, onTranslateTheme: translateTheme, onRegenerateLyrics: regenerateLyrics })), React.createElement('div', { className: "col-span-12 lg:col-span-5" }, React.createElement(StyleCard, { settings, updateSetting, toggleStyle: v => toggleArraySetting('styles', v), quickPresets: QUICK_PRESETS, onPresetChange: handlePresetChange })), React.createElement('div', { className: "col-span-12 lg:col-span-8" }, React.createElement(InstrumentationCard, { settings, instrumentGroups: INSTRUMENT_GROUPS, toggleInstrument: v => toggleArraySetting('instruments', v), updateSetting, isLoading, onSuggestInstruments: suggestInstruments })), React.createElement('div', { className: "col-span-12 lg:col-span-4" }, React.createElement(StructureCard, { settings, updateSetting })), React.createElement('div', { className: "col-span-12" }, React.createElement(OutputCard, { generatedPrompt, isLoading, onCopy: () => { navigator.clipboard.writeText(generatedPrompt); showToast('Prompt a vágólapra másolva!'); }, onShorten: shortenPrompt, onExpand: expandPrompt })), generatedLyrics && React.createElement('div', { className: "col-span-12" }, React.createElement(LyricsOutputCard, { lyrics: generatedLyrics, onCopy: () => { navigator.clipboard.writeText(generatedLyrics); showToast('Dalszöveg a vágólapra másolva!'); } }))), React.createElement(Toast, { message: toastMessage }));
+};
+
+// --- RENDER APP ---
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(React.StrictMode, null, React.createElement(App)));
+
+    </script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
