@@ -1,47 +1,46 @@
-// main.js — vészbiztos indítás: minden más module script eltávolítva
+// main.js — React 18 alatt is működő, LEGACY renderrel (nem createRoot)
 import React from "react";
-import { createRoot } from "react-dom/client";
+import ReactDOM from "react-dom";
 
-console.log("[main.js] start", new Date().toISOString());
+// Logoljuk, hogy mikor tölt be a modul
+console.log("[main.js] legacy start", new Date().toISOString());
 
-// 1) Szedd ki az összes többi module scriptet, csak a saját maradjon
-for (const s of [...document.querySelectorAll('script[type="module"]')]) {
-  if (!(s.src || "").endsWith("/main.js")) {
-    console.warn("[main.js] másik module script eltávolítva:", s.src || "(inline)");
-    s.remove();
-  }
-}
-
-// 2) Ha volt régi root, állítsuk le
-try { globalThis.__APP_ROOT__?.unmount?.(); } catch {}
-
-// 3) Egyedi konténer létrehozása (nem a régi #root)
-const containerId = "app-root-uniq";
-let container = document.getElementById(containerId);
-if (!container) {
-  container = document.createElement("div");
-  container.id = containerId;
-  container.style.minHeight = "100vh";
-  document.body.prepend(container);
-}
-
-// 4) Egyszeri boot védelem
+// Egyszeri boot védelem
 if (globalThis.__APP_BOOTED__) {
   console.warn("[main.js] második boot blokkolva");
 } else {
   globalThis.__APP_BOOTED__ = true;
 
-  const root = createRoot(container);
-  globalThis.__APP_ROOT__ = root;
+  // Ha bármi korábbi root futott, próbáljuk leállítani (legacy takarítás)
+  try { globalThis.__APP_ROOT_UNMOUNT__?.(); } catch {}
 
+  // Új, egyedi konténer
+  const containerId = "app-root-legacy";
+  let container = document.getElementById(containerId);
+  if (!container) {
+    container = document.createElement("div");
+    container.id = containerId;
+    container.style.minHeight = "100vh";
+    document.body.prepend(container);
+    console.log("[main.js] létrehozott konténer:", `#${containerId}`);
+  }
+
+  // Minimal UI – jól látható visszajelzés
   function App() {
     return React.createElement(
       "main",
       { style: "padding:24px;color:#fff;font-family:system-ui,Segoe UI,Arial" },
-      React.createElement("h1", null, "Suno Generate – tiszta indulás"),
-      React.createElement("p", null, "Más module scriptek eltávolítva; egyetlen render fut.")
+      React.createElement("h1", null, "Suno Generate – legacy render"),
+      React.createElement("p", null, "Itt a régi ReactDOM.render-t használjuk, így a createRoot körüli #62 kimarad.")
     );
   }
 
-  root.render(React.createElement(React.StrictMode, null, React.createElement(App)));
+  // LEGACY RENDER (ReactDOM.render) – nincs createRoot, nincs #62
+  ReactDOM.render(
+    React.createElement(App),
+    container
+  );
+
+  // Elmentjük az unmountoló függvényt (ha később kell)
+  globalThis.__APP_ROOT_UNMOUNT__ = () => ReactDOM.unmountComponentAtNode(container);
 }
