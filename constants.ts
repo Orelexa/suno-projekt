@@ -1,4 +1,3 @@
-
 import type { PromptSettings, InstrumentGroup, QuickPreset } from './types.ts';
 
 export const initialSettings: PromptSettings = {

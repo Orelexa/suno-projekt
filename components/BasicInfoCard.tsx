@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { PromptSettings, VocalStyle, VocalType } from '../types.ts';
 import Card from './Card.tsx';

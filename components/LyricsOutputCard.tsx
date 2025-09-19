@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Copy } from 'lucide-react';
 import Card from './Card.tsx';

@@ -29,28 +29,20 @@
         }
       }
     </script>
-    <!-- Add Babel Standalone for in-browser TSX transpilation -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "lucide-react": "https://esm.sh/lucide-react@^0.539.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.20.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/"
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.544.0",
+    "react": "https://aistudiocdn.com/react@^19.1.1"
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-gradient-to-b from-bg-dark to-[#0e141f] text-text-main font-sans">
     <div id="root"></div>
-    <!-- 
-      Tell Babel to transpile and run our entry script.
-      Using `type="text/babel"` and `data-presets` allows Babel to handle JSX and TypeScript.
-      `data-type="module"` tells Babel to process ES module syntax (import/export).
-      Babel will fetch and transpile this script and its dependencies, then execute it.
-    -->
-    <script type="text/babel" data-type="module" data-presets="typescript,react" src="./index.js"></script>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>

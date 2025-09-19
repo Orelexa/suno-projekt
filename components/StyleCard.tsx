@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { PromptSettings, QuickPreset } from '../types.ts';
 import { STYLE_PRESETS } from '../constants.ts';

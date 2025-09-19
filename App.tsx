@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import type { PromptSettings, VocalType, VocalStyle } from './types.ts';
 import { initialSettings, INSTRUMENT_GROUPS, ALL_AVAILABLE_INSTRUMENTS, STYLE_PRESETS, QUICK_PRESETS } from './constants.ts';
