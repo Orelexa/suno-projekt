@@ -21,13 +21,25 @@
       const e = React.createElement;
 
       // ------------------ KATALÓGUSOK ------------------
-      const GENRES = ["pop","rock","hip-hop","r&b","electronic","jazz","blues","cinematic","ambient"];
-      const MOODS = ["energetic","uplifting","happy","sad","melancholic","romantic","dark","epic"];
-      const LANGUAGES = ["magyar","angol","spanyol","német","francia"];
-      const INSTRUMENTS = ["acoustic guitar","electric guitar","bass guitar","piano","synths","strings","drums","choir","saxophone"];
+      const GENRES = [
+        "pop","rock","hip-hop","r&b","electronic","house","techno","trance",
+        "drum & bass","dubstep","lofi","jazz","blues","funk","disco",
+        "folk","country","latin","reggaeton","afrobeats","k-pop","metal","punk",
+        "orchestral","cinematic","ambient","trap","phonk","synthwave","retrowave"
+      ];
+      const MOODS = [
+        "energetic","uplifting","happy","sad","melancholic","romantic","dreamy",
+        "dark","epic","mysterious","aggressive","gentle","nostalgic","hopeful"
+      ];
+      const LANGUAGES = ["magyar","angol","spanyol","német","francia","olasz","japán","koreai"];
+      const INSTRUMENTS = [
+        "acoustic guitar","electric guitar","bass guitar","piano","synths",
+        "strings","brass","woodwinds","drums","808s","percussion","pads",
+        "choir","violin lead","saxophone","flute","harp","organ"
+      ];
 
       // ------------------ SEGÉDEK ------------------
-      const LS_KEY = "suno-ui-v3";
+      const LS_KEY = "suno-ui-v4";
       function clsx(...parts){ return parts.filter(Boolean).join(" "); }
       async function postJSON(url, data){
         const resp = await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
