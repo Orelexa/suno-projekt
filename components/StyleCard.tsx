@@ -1,10 +1,10 @@
 
 import React from 'react';
-import type { PromptSettings, QuickPreset } from '../types.ts';
-import { STYLE_PRESETS } from '../constants.ts';
-import Card from './Card.tsx';
-import FormLabel from './FormLabel.tsx';
-import Chip from './Chip.tsx';
+import type { PromptSettings, QuickPreset } from '../types';
+import { STYLE_PRESETS } from '../constants';
+import Card from './Card';
+import FormLabel from './FormLabel';
+import Chip from './Chip';
 
 interface StyleCardProps {
     settings: PromptSettings;

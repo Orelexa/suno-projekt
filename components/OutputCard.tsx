@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { Copy, PlusCircle, MinusCircle } from 'lucide-react';
-import GeminiButton from './GeminiButton.tsx';
-import Card from './Card.tsx';
+import GeminiButton from './GeminiButton';
+import Card from './Card';
 
 interface OutputCardProps {
     generatedPrompt: string;
