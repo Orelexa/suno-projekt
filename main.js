@@ -1,50 +1,47 @@
-// main.js — tiszta, ütközésmentes belépő
+// main.js — vészbiztos indítás: minden más module script eltávolítva
 import React from "react";
 import { createRoot } from "react-dom/client";
 
-// Logoljuk, hogy mikor tölt be a modul
-console.log("[main.js] loaded at", new Date().toISOString());
+console.log("[main.js] start", new Date().toISOString());
 
-// Egyszeri boot védelem (ha valamiért kétszer hívódna)
+// 1) Szedd ki az összes többi module scriptet, csak a saját maradjon
+for (const s of [...document.querySelectorAll('script[type="module"]')]) {
+  if (!(s.src || "").endsWith("/main.js")) {
+    console.warn("[main.js] másik module script eltávolítva:", s.src || "(inline)");
+    s.remove();
+  }
+}
+
+// 2) Ha volt régi root, állítsuk le
+try { globalThis.__APP_ROOT__?.unmount?.(); } catch {}
+
+// 3) Egyedi konténer létrehozása (nem a régi #root)
+const containerId = "app-root-uniq";
+let container = document.getElementById(containerId);
+if (!container) {
+  container = document.createElement("div");
+  container.id = containerId;
+  container.style.minHeight = "100vh";
+  document.body.prepend(container);
+}
+
+// 4) Egyszeri boot védelem
 if (globalThis.__APP_BOOTED__) {
-  console.warn("[main.js] Második boot kísérlet — kihagyva.");
+  console.warn("[main.js] második boot blokkolva");
 } else {
   globalThis.__APP_BOOTED__ = true;
 
-  // 1) Hozzunk létre EGY VADONATÚJ konténert, egyedi ID-val
-  //    (nem a régi #root, így semmivel sem ütközhet)
-  const containerId = "app-root-uniq";
-  let container = document.getElementById(containerId);
-  if (!container) {
-    container = document.createElement("div");
-    container.id = containerId;
-    container.style.minHeight = "100vh";
-    document.body.prepend(container);
-    console.log("[main.js] Új konténer létrehozva:", `#${containerId}`);
-  }
-
-  // 2) Biztos, ami biztos: ha volt korábbi rootunk, zárjuk le
-  try {
-    globalThis.__APP_ROOT__?.unmount?.();
-  } catch (e) {
-    console.warn("[main.js] Unmount figyelmeztetés:", e);
-  }
-
-  // 3) ÚJ React root létrehozása a VADONATÚJ konténerre
   const root = createRoot(container);
   globalThis.__APP_ROOT__ = root;
 
-  // 4) Minimál UI — látható visszajelzés
   function App() {
     return React.createElement(
       "main",
       { style: "padding:24px;color:#fff;font-family:system-ui,Segoe UI,Arial" },
       React.createElement("h1", null, "Suno Generate – tiszta indulás"),
-      React.createElement("p", null, "Új, egyedi konténerre renderelünk → React #62 többé nem zavar be.")
+      React.createElement("p", null, "Más module scriptek eltávolítva; egyetlen render fut.")
     );
   }
 
-  root.render(
-    React.createElement(React.StrictMode, null, React.createElement(App))
-  );
+  root.render(React.createElement(React.StrictMode, null, React.createElement(App)));
 }
