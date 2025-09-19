@@ -1,10 +1,10 @@
 
 import React from 'react';
-import type { PromptSettings, InstrumentGroup } from '../types';
-import Card from './Card';
-import FormLabel from './FormLabel';
-import Chip from './Chip';
-import GeminiButton from './GeminiButton';
+import type { PromptSettings, InstrumentGroup } from '../types.ts';
+import Card from './Card.tsx';
+import FormLabel from './FormLabel.tsx';
+import Chip from './Chip.tsx';
+import GeminiButton from './GeminiButton.tsx';
 
 interface InstrumentationCardProps {
     settings: PromptSettings;

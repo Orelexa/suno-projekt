@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Copy } from 'lucide-react';
-import Card from './Card';
+import Card from './Card.tsx';
 
 interface LyricsOutputCardProps {
     lyrics: string;

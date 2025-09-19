@@ -1,17 +1,17 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { PromptSettings, VocalType, VocalStyle } from './types';
-import { initialSettings, INSTRUMENT_GROUPS, ALL_AVAILABLE_INSTRUMENTS, STYLE_PRESETS, QUICK_PRESETS } from './constants';
-import * as geminiService from './services/geminiService';
+import type { PromptSettings, VocalType, VocalStyle } from './types.ts';
+import { initialSettings, INSTRUMENT_GROUPS, ALL_AVAILABLE_INSTRUMENTS, STYLE_PRESETS, QUICK_PRESETS } from './constants.ts';
+import * as geminiService from './services/geminiService.ts';
 
-import Header from './components/Header';
-import BasicInfoCard from './components/BasicInfoCard';
-import StyleCard from './components/StyleCard';
-import InstrumentationCard from './components/InstrumentationCard';
-import StructureCard from './components/StructureCard';
-import OutputCard from './components/OutputCard';
-import LyricsOutputCard from './components/LyricsOutputCard';
-import Toast from './components/Toast';
+import Header from './components/Header.tsx';
+import BasicInfoCard from './components/BasicInfoCard.tsx';
+import StyleCard from './components/StyleCard.tsx';
+import InstrumentationCard from './components/InstrumentationCard.tsx';
+import StructureCard from './components/StructureCard.tsx';
+import OutputCard from './components/OutputCard.tsx';
+import LyricsOutputCard from './components/LyricsOutputCard.tsx';
+import Toast from './components/Toast.tsx';
 
 const App: React.FC = () => {
     const [settings, setSettings] = useState<PromptSettings>(initialSettings);

@@ -1,8 +1,8 @@
 
 import React from 'react';
-import type { PromptSettings } from '../types';
-import Card from './Card';
-import FormLabel from './FormLabel';
+import type { PromptSettings } from '../types.ts';
+import Card from './Card.tsx';
+import FormLabel from './FormLabel.tsx';
 
 interface StructureCardProps {
     settings: PromptSettings;
