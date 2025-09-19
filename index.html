@@ -3,12 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Suno Generate — UMD + Netlify Function</title>
+    <title>Suno Generate — demo (UMD React)</title>
 
-    <!-- Tailwind (tesztre jó) -->
+    <!-- Ideiglenes: Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- React 18 UMD (globális) -->
+    <!-- React 18 UMD -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   </head>
@@ -18,65 +18,279 @@
     <noscript>Engedélyezd a JavaScriptet.</noscript>
 
     <script>
-      const el = React.createElement;
+      const e = React.createElement;
 
-      function App() {
-        const [prompt, setPrompt] = React.useState("");
-        const [loading, setLoading] = React.useState(false);
+      // ------------------ KATALÓGUSOK ------------------
+      const GENRES = [
+        "pop","rock","hip-hop","r&b","electronic","house","techno","trance",
+        "drum & bass","dubstep","lofi","jazz","blues","funk","disco",
+        "folk","country","latin","reggaeton","afrobeats","k-pop","metal","punk",
+        "orchestral","cinematic","ambient","trap","phonk","synthwave","retrowave"
+      ];
+
+      const MOODS = [
+        "energetic","uplifting","happy","sad","melancholic","romantic","dreamy",
+        "dark","epic","mysterious","aggressive","gentle","nostalgic","hopeful"
+      ];
+
+      const TEMPOS = [
+        { label: "lassú (60-80 BPM)", value: "slow 70 BPM" },
+        { label: "közepes (90-110 BPM)", value: "medium 100 BPM" },
+        { label: "gyors (120-140 BPM)", value: "fast 130 BPM" }
+      ];
+
+      const LANGUAGES = ["magyar","angol","spanyol","német","francia","olasz","japán","koreai"];
+
+      const INSTRUMENTS = [
+        "acoustic guitar","electric guitar","bass guitar","piano","synths",
+        "strings","brass","woodwinds","drums","808s","percussion","pads",
+        "choir","violin lead","saxophone","flute","harp","organ"
+      ];
+
+      // ------------------ SEGÉDEK ------------------
+      function clsx(...parts){ return parts.filter(Boolean).join(" "); }
+
+      async function postJSON(url, data){
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify(data)
+        });
+        const text = await resp.text();
+        try { return { ok: resp.ok, data: JSON.parse(text) }; }
+        catch { return { ok: resp.ok, data: { raw: text } }; }
+      }
+
+      function copy(text){
+        navigator.clipboard?.writeText(text).catch(()=>{});
+      }
+
+      // ------------------ PROMPT ÉPÍTŐK ------------------
+      function buildLyricsPrompt({ topic, genre, mood, tempo, language }){
+        return [
+          `Feladat: írj énekelhető dalszöveget.`,
+          `Nyelv: ${language}.`,
+          `Műfaj: ${genre}. Hangulat: ${mood}. Tempó: ${tempo}.`,
+          `Téma/brief: ${topic || "szabad téma"}.`,
+          `Formátum: versszakok és refrén, 2-3 versszak, 1-2 refrén. Rímelés lazán.`,
+          `Ne írj akkordokat, csak a szöveget add vissza.`,
+        ].join("\n");
+      }
+
+      function buildSunoPrompt({ topic, genre, mood, tempo, language, instruments, vocal, keySig }){
+        const tags = [
+          genre, mood, tempo,
+          instruments.length ? `instruments: ${instruments.join(", ")}` : null,
+          vocal ? `vocal: ${vocal}` : null,
+          keySig ? `key: ${keySig}` : null,
+          `language: ${language}`,
+          "studio mix, high quality"
+        ].filter(Boolean).join(", ");
+
+        const description = topic || "catchy original track";
+
+        // Suno „prompt” (leírás + tag-ek)
+        return `${description} — ${tags}`;
+      }
+
+      // ------------------ APP ------------------
+      function App(){
+        const [topic, setTopic] = React.useState("");
+        const [genre, setGenre] = React.useState("pop");
+        const [mood, setMood] = React.useState("uplifting");
+        const [tempo, setTempo] = React.useState(TEMPOS[1].value);
+        const [language, setLanguage] = React.useState("magyar");
+        const [vocal, setVocal] = React.useState("female lead, airy, modern pop");
+        const [keySig, setKeySig] = React.useState("A minor");
+
+        const [selectedInstruments, setSelectedInstruments] = React.useState(["drums","bass guitar","synths"]);
+
+        const [lyrics, setLyrics] = React.useState("");
+        const [sunoPrompt, setSunoPrompt] = React.useState("");
+        const [busy, setBusy] = React.useState(false);
         const [error, setError] = React.useState("");
-        const [result, setResult] = React.useState("");
 
-        async function handleGenerate() {
-          setError("");
-          setResult("");
-          if (!prompt.trim()) {
-            setError("Adj meg egy promptot.");
-            return;
-          }
-          setLoading(true);
-          try {
-            const resp = await fetch("/.netlify/functions/generate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ prompt, model: "gemini-1.5-flash" })
+        function toggleInstrument(name){
+          setSelectedInstruments(prev =>
+            prev.includes(name) ? prev.filter(x=>x!==name) : [...prev, name]
+          );
+        }
+
+        async function handleGenerate(){
+          setError(""); setLyrics(""); setSunoPrompt("");
+          setBusy(true);
+          try{
+            // 1) Dalszöveg prompt
+            const prompt = buildLyricsPrompt({
+              topic, genre, mood, tempo, language
             });
-            if (!resp.ok) {
-              const txt = await resp.text().catch(() => "");
-              throw new Error(`Backend ${resp.status}: ${txt}`);
+
+            const res = await postJSON("/.netlify/functions/generate", {
+              prompt,
+              model: "gemini-1.5-flash-latest"
+            });
+
+            if(!res.ok){
+              throw new Error(res?.data?.error || "Ismeretlen hiba");
             }
-            const data = await resp.json();
-            setResult(data.text || "(nincs szöveg)");
-          } catch (e) {
-            setError(String(e.message || e));
-          } finally {
-            setLoading(false);
+            const text = res?.data?.text || res?.data?.raw || "";
+            setLyrics(text);
+
+            // 2) Suno prompt
+            const suno = buildSunoPrompt({
+              topic, genre, mood,
+              tempo, language,
+              instruments: selectedInstruments,
+              vocal, keySig
+            });
+            setSunoPrompt(suno);
+          }catch(err){
+            setError(String(err.message || err));
+          }finally{
+            setBusy(false);
           }
         }
 
-        return el("main", { className: "mx-auto max-w-3xl p-6 space-y-4" },
-          el("h1", { className: "text-2xl font-semibold" }, "Suno Generate — működő prototípus"),
-          el("p", { className: "opacity-80" }, "A Gemini hívás Netlify Functionön keresztül megy, így a kulcs nem kerül a kliensbe."),
-          el("div", { className: "space-y-3" },
-            el("textarea", {
-              className: "w-full h-36 bg-slate-900/70 border border-slate-800 rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500",
-              placeholder: "Írd ide a promptot…",
-              value: prompt,
-              onChange: (e) => setPrompt(e.target.value)
-            }),
-            el("button", {
-              className: "px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg disabled:opacity-50",
-              disabled: loading,
+        return e("main", { className: "mx-auto max-w-5xl p-6 space-y-8" },
+          e("header", { className: "space-y-1" },
+            e("h1", { className: "text-2xl font-semibold" }, "Suno Generate — összerakó"),
+            e("p", { className: "opacity-80" },
+              "Válaszd ki a stílust/hangulatot, írd le a témát, ",
+              "majd készül a dalszöveg és egy Suno-kompatibilis prompt.")
+          ),
+
+          // --- Beállítások ---
+          e("section", { className: "grid md:grid-cols-2 gap-6" },
+            e("div", { className: "space-y-4" },
+              e("label", { className: "block text-sm opacity-80" }, "Téma / brief"),
+              e("textarea", {
+                className: "w-full h-28 bg-slate-900/70 border border-slate-800 rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500",
+                placeholder: "pl. nyári éjszakák, városi fények, szabadság érzése…",
+                value: topic, onChange: e=>setTopic(e.target.value)
+              }),
+              e("div", { className: "grid grid-cols-2 gap-4" },
+                e("div", null,
+                  e("label", { className: "block text-sm opacity-80 mb-1" }, "Műfaj"),
+                  e("select", {
+                    className: "w-full bg-slate-900/70 border border-slate-800 rounded-xl p-2",
+                    value: genre, onChange: e=>setGenre(e.target.value)
+                  }, GENRES.map(g=>e("option",{key:g, value:g}, g)))
+                ),
+                e("div", null,
+                  e("label", { className: "block text-sm opacity-80 mb-1" }, "Hangulat"),
+                  e("select", {
+                    className: "w-full bg-slate-900/70 border border-slate-800 rounded-xl p-2",
+                    value: mood, onChange: e=>setMood(e.target.value)
+                  }, MOODS.map(g=>e("option",{key:g, value:g}, g)))
+                ),
+              ),
+              e("div", { className: "grid grid-cols-2 gap-4" },
+                e("div", null,
+                  e("label", { className: "block text-sm opacity-80 mb-1" }, "Tempó"),
+                  e("select", {
+                    className: "w-full bg-slate-900/70 border border-slate-800 rounded-xl p-2",
+                    value: tempo, onChange: e=>setTempo(e.target.value)
+                  }, TEMPOS.map(t=>e("option",{key:t.value, value:t.value}, t.label)))
+                ),
+                e("div", null,
+                  e("label", { className: "block text-sm opacity-80 mb-1" }, "Nyelv"),
+                  e("select", {
+                    className: "w-full bg-slate-900/70 border border-slate-800 rounded-xl p-2",
+                    value: language, onChange: e=>setLanguage(e.target.value)
+                  }, LANGUAGES.map(l=>e("option",{key:l, value:l}, l)))
+                ),
+              ),
+            ),
+
+            // Hangszerek, ének, hangnem
+            e("div", { className: "space-y-4" },
+              e("label", { className: "block text-sm opacity-80" }, "Hangszerek (több is választható)"),
+              e("div", { className: "grid grid-cols-2 md:grid-cols-3 gap-2" },
+                INSTRUMENTS.map(name =>
+                  e("label", {
+                    key: name,
+                    className: clsx(
+                      "flex items-center gap-2 rounded-lg px-3 py-2 border cursor-pointer",
+                      selectedInstruments.includes(name) ? "border-indigo-500 bg-indigo-500/10" : "border-slate-800 bg-slate-900/50"
+                    )
+                  },
+                    e("input",{
+                      type:"checkbox",
+                      checked: selectedInstruments.includes(name),
+                      onChange: ()=>toggleInstrument(name)
+                    }),
+                    e("span", null, name)
+                  )
+                )
+              ),
+              e("div", { className: "grid grid-cols-2 gap-4" },
+                e("div", null,
+                  e("label", { className: "block text-sm opacity-80 mb-1" }, "Énekstílus"),
+                  e("input", {
+                    className: "w-full bg-slate-900/70 border border-slate-800 rounded-xl p-2",
+                    value: vocal, onChange: e=>setVocal(e.target.value)
+                  })
+                ),
+                e("div", null,
+                  e("label", { className: "block text-sm opacity-80 mb-1" }, "Hangnem"),
+                  e("input", {
+                    className: "w-full bg-slate-900/70 border border-slate-800 rounded-xl p-2",
+                    value: keySig, onChange: e=>setKeySig(e.target.value)
+                  })
+                ),
+              )
+            )
+          ),
+
+          e("div", { className: "flex items-center gap-3" },
+            e("button", {
+              className: clsx(
+                "px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500",
+                busy && "opacity-60 pointer-events-none"
+              ),
               onClick: handleGenerate
-            }, loading ? "Generálás…" : "Generálás"),
-            error && el("div", { className: "text-red-400" }, error),
-            result && el("pre", { className: "whitespace-pre-wrap bg-slate-900/60 p-3 rounded-xl border border-slate-800" }, result)
+            }, busy ? "Generálás…" : "Dalszöveg + Suno prompt generálása"),
+            error && e("span", { className: "text-red-400" }, error)
+          ),
+
+          // --- Kimenetek ---
+          e("section", { className: "grid md:grid-cols-2 gap-6" },
+            e("div", { className: "space-y-3" },
+              e("div", { className: "flex items-center justify-between" },
+                e("h2", { className: "text-lg font-semibold" }, "Dalszöveg"),
+                e("button", {
+                  className: "text-sm opacity-80 hover:opacity-100 underline",
+                  onClick: ()=>copy(lyrics),
+                  disabled: !lyrics
+                },"Másolás")
+              ),
+              e("pre", { className: "min-h-[10rem] whitespace-pre-wrap bg-slate-900/60 p-4 rounded-xl border border-slate-800" },
+                lyrics || "Itt jelenik meg a generált szöveg."
+              )
+            ),
+            e("div", { className: "space-y-3" },
+              e("div", { className: "flex items-center justify-between" },
+                e("h2", { className: "text-lg font-semibold" }, "Suno prompt"),
+                e("button", {
+                  className: "text-sm opacity-80 hover:opacity-100 underline",
+                  onClick: ()=>copy(sunoPrompt),
+                  disabled: !sunoPrompt
+                },"Másolás")
+              ),
+              e("pre", { className: "min-h-[10rem] whitespace-pre-wrap bg-slate-900/60 p-4 rounded-xl border border-slate-800" },
+                sunoPrompt || "Itt jelenik meg az összeállított Suno prompt (leírás + tagek)."
+              )
+            )
+          ),
+
+          e("footer", { className: "pt-6 opacity-60 text-sm" },
+            "UMD React demo. Backend: Netlify Function (/.netlify/functions/generate)."
           )
         );
       }
 
-      // Simple, stabil render UMD-del
       const root = document.getElementById("root");
-      ReactDOM.render(React.createElement(App), root);
+      ReactDOM.render(e(App), root);
       window.__APP_UNMOUNT__ = () => ReactDOM.unmountComponentAtNode(root);
     </script>
   </body>
