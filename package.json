@@ -1,9 +1,0 @@
-{
-  "name": "suno-projekt",
-  "version": "1.0.0",
-  "description": "Suno prompt generator with a secure Netlify proxy for Gemini API calls.",
-  "type": "module",
-  "dependencies": {
-    "@google/genai": "^1.20.0"
-  }
-}
