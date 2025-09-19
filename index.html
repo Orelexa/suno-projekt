@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="data:,">
+    <link rel="icon" href="data:," />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Suno Prompt Generator - Gemini API</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -45,7 +45,18 @@
 </head>
   <body class="bg-gradient-to-b from-bg-dark to-[#0e141f] text-text-main font-sans">
     <div id="root"></div>
-    <!-- Change script type to text/babel and fix path -->
+    <!-- 
+      1. Tell Babel to transpile our main script and its dependencies into an ES module.
+      Babel will fetch and process this script but won't execute it immediately.
+    -->
     <script type="text/babel" data-type="module" data-presets="typescript,react" src="./index.tsx"></script>
+    
+    <!-- 
+      2. Now, use a native module script to import and execute the code that Babel just prepared.
+      This triggers the application to run.
+    -->
+    <script type="module">
+      import './index.tsx';
+    </script>
   </body>
 </html>
